@@ -41,3 +41,11 @@ button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
+
+input{
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #646cff;
+  height: 30px;
+  line-height: 30px;
+}

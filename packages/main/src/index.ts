@@ -10,6 +10,10 @@ import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { dialog } from "electron";
 import * as fs from "node:fs";
 import { shell } from "electron";
+import { request } from "undici";
+import { ipcMain } from "electron";
+import { spawn } from "child_process";
+
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
     .init(
@@ -55,7 +59,6 @@ export async function initApp(initConfig: AppInitConfig) {
   await moduleRunner;
 }
 
-import { ipcMain } from "electron";
 ipcMain.handle("select-directory", async (event, operation) => {
   const properties: Array<"openDirectory" | "createDirectory"> =
     operation === "export"
@@ -72,26 +75,27 @@ ipcMain.handle("select-directory", async (event, operation) => {
 });
 
 ipcMain.handle("list-mods", async (event, operation) => {
-  if (operation === 'C:/'){
+  if (operation === "C:/") {
     return [];
   }
   try {
-  const mods = fs.readdirSync(operation + "/mods");
-  mods.forEach((mod, index) => {
-    if (mods[index].includes("saves")) {
-      mods.splice(index, 1);
-    }
-    if (mods[index].includes("logs")) {
-      mods.splice(index, 1);
-    }
-    if (mods[index].includes("downloads")) {
-      mods.splice(index, 1);
-    }
-    if (mods[index].includes("base")) {
-      mods.splice(index, 1);
-    }
-  });
-  return mods;} catch (err) {
+    const mods = fs.readdirSync(operation + "/mods");
+    mods.forEach((mod, index) => {
+      if (mods[index].includes("saves")) {
+        mods.splice(index, 1);
+      }
+      if (mods[index].includes("logs")) {
+        mods.splice(index, 1);
+      }
+      if (mods[index].includes("downloads")) {
+        mods.splice(index, 1);
+      }
+      if (mods[index].includes("base")) {
+        mods.splice(index, 1);
+      }
+    });
+    return mods;
+  } catch (err) {
     return [];
   }
 });
@@ -99,12 +103,13 @@ ipcMain.handle("list-mods", async (event, operation) => {
 ipcMain.handle("get-mod-data", async (event, operation) => {
   try {
     let modText = fs.readFileSync(operation + "/mod.txt", "utf8");
-    let mod: { name: string; version: string; author: string } = JSON.parse(modText);
+    let mod: { name: string; version: string; author: string } =
+      JSON.parse(modText);
     let mdata = {
       name: mod.name,
       version: mod.version,
       author: mod.author,
-    }
+    };
     return mdata;
   } catch (err) {
     return "No mod.txt found";
@@ -118,4 +123,46 @@ ipcMain.handle("open-mod-folder", async (event, operation) => {
 ipcMain.handle("load-options", async (event, operation) => {
   const mods = fs.readdirSync(operation);
   return mods;
+});
+
+interface ModAPIResponse {
+  data: {
+    files: any[];
+    download_url: string;
+  };
+}
+
+ipcMain.handle("download-mod", async (event, operation) => {
+  const baseURL = operation.url;
+  const path = operation.path;
+  var modID = baseURL.split("https://modworkshop.net/mod/");
+  modID = modID[1];
+  console.log(modID);
+  const { statusCode, body } = await request(
+    `https://api.modworkshop.net/mods/${modID}/files`,
+    {}
+  );
+  const data = (await body.json()) as ModAPIResponse;
+  const downloadURL = data.data[0].download_url;
+  const response = await request(downloadURL);
+  const fileStream = fs.createWriteStream(path + "/mod.zip");
+  await new Promise((resolve, reject) => {
+    response.body.pipe(fileStream);
+    fileStream.on("finish", resolve);
+    fileStream.on("error", reject);
+  });
+  await new Promise((resolve, reject) => {
+    const unzip = spawn("powershell", [
+      "Expand-Archive",
+      "-Force",
+      "-Path",
+      `"${path}/mod.zip"`,
+      "-DestinationPath",
+      `"${path}"`,
+    ]);
+    unzip.on("close", resolve);
+    unzip.on("error", reject);
+  });
+  fs.unlinkSync(path + "/mod.zip");
+  return "Downloaded";
 });

@@ -4,39 +4,47 @@
   margin: 4px;
   border-radius: 4px;
 }
+
 .content {
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
 }
-.root{
+
+.root {
   display: flex;
   flex-direction: column;
   justify-content: center;
   width: 95vw;
 }
-.selected{
+
+.selected {
   background-color: #646cff;
   color: white;
 }
-.rightList{
+
+.rightList {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
   width: 100%;
+  margin-left: 12px;
 }
 
-.pathSelector{
+.pathSelector {
   margin: 4px;
 }
 
-input{
+.pathInput {
   width: 95vw;
   padding: 4px;
   border-radius: 4px;
   border: 1px solid #646cff;
   height: 30px;
   line-height: 30px;
+}
+
+.title {
+  font-size: 1.1em;
+  font-weight: 500;
 }

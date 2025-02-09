@@ -6,6 +6,7 @@ function App() { //
   const [modList, setModList] = useState([]);
   const [selected, setSelected] = useState(-1);
   const [selectedModData, setSelectedModData] = useState([]);
+  const [modLink, setModLink] = useState('');
   useEffect(() => {
     if (path !== 'C:\\mods') {
       ListMods();
@@ -32,7 +33,7 @@ function App() { //
       return selectedModData.author;
     }
     else {
-      return 'Unknown';
+      return 'No author found';
     }
   }
   function GetVersion() {
@@ -40,7 +41,7 @@ function App() { //
       return selectedModData.version;
     }
     else {
-      return 'Incorrectly Formatted or Beardlib Mod';
+      return 'No version found';
     }
   }
   function GetName() {
@@ -51,9 +52,15 @@ function App() { //
       return modList[selected];
     }
   }
+  async function DwButton() {
+    await window.electron.ipcRenderer.invoke('download-mod', { url: modLink, path: path + "/mods/" })
+    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
+  }
+
   async function ListMods() {
     setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
   }
+
   async function OpenFolder() {
     await window.electron.ipcRenderer.invoke('open-mod-folder', path + "/mods/" + modList[selected]);
   }
@@ -62,6 +69,7 @@ function App() { //
       <input
         type="text"
         id="pathInput"
+        className='pathInput'
         placeholder="Payday 2 path..."
         readOnly
         onClick={() => SelectDir()}
@@ -81,18 +89,29 @@ function App() { //
           <div className="rightList">
             <div className="modInfo">
               {selected !== -1 && (
-                <div>
-                  <h2>{GetName()}</h2>
+                <>
+                  <p className='title'>{GetName()}</p>
                   <p>Author: {GetAuthor()}</p>
                   <p>Version: {GetVersion()}</p>
                   <button onClick={() => OpenFolder()}>Open Mod Folder</button>
-                </div>
+                </>
               )}
+            </div>
+            <div className="modDownload">
+              <input
+                type="text"
+                id="modlink"
+                className='modlink'
+                placeholder="Link to mod..."
+                onChange={(e) => setModLink(e.target.value)}
+                value={modLink}
+              />
+              <button onClick={() => DwButton()}>Download Mod</button>
             </div>
           </div>
         </>
       ) : (
-        <div>No mods found</div>
+        <div>Input path to Payday 2 Folder Above</div>
       )}
     </div>
   </div>
