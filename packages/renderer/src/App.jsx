@@ -1,22 +1,39 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useEffect, useState } from 'react'
 import './App.css'
 
-function App() {
-  const [path , setPath] = useState('');
+function App() { //
+  const [path, setPath] = useState('');
+  const [modList, setModList] = useState([]);
+
+  useEffect(() => {
+    if (path === '') {
+      LoadSettings()
+    }
+  }, [])
+
+  async function LoadSettings() {
+    const settings = await window.electron.ipcRenderer.invoke('load-settings', "./settings.json");
+    console.log(settings);
+    await setPath(settings.path);
+    ListMods();
+  }
+
   async function SelectDir() {
     const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
     setPath(exportPath);
+    ListMods();
   }
   async function ListMods() {
-    const modList = await window.electron.ipcRenderer.invoke('select-directory', 'export');
-    console.log(modList);
+    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
   }
   return (
     <>
       <div className="modList">
-        
+        {modList.map((modName, modID) => (
+          <div className="mod" key={modID}>
+            <div className="modName">{modName}</div>
+          </div>
+        ))}
       </div>
       <div className="rightList">
         <div className="pathSelector">
@@ -29,6 +46,7 @@ function App() {
             onClick={() => SelectDir()}
             value={path}
           />
+          <button onClick={() => ListMods()}></button>
         </div>
       </div>
     </>

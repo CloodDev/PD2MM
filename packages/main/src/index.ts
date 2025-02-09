@@ -8,7 +8,7 @@ import {autoUpdater} from './modules/AutoUpdater.js';
 import {allowInternalOrigins} from './modules/BlockNotAllowdOrigins.js';
 import {allowExternalUrls} from './modules/ExternalUrls.js';
 import { dialog } from 'electron';
-
+import * as fs from 'node:fs';
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
     .init(createWindowManagerModule({initConfig, openDevTools: import.meta.env.DEV}))
@@ -55,4 +55,17 @@ ipcMain.handle('select-directory', async (event, operation) => {
   } else {
       return result.filePaths[0];
   }
+});
+
+
+ipcMain.handle("list-mods", async (event, operation) => {
+  console.log(operation);
+  const mods = fs.readdirSync(operation + "/mods");
+  return mods;
+});
+
+ipcMain.handle("load-options", async (event, operation) => {
+  console.log(operation);
+  const mods = fs.readdirSync(operation);
+  return mods;
 });
