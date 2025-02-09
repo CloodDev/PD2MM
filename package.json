@@ -1,0 +1,41 @@
+{
+  "name": "root",
+  "description": "Secure boilerplate for Electron app based on Vite",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "author": {
+    "email": "kozackunisoft@gmail.com",
+    "name": "Alex Kozack",
+    "url": "https://kozack.me"
+  },
+  "main": "packages/entry-point.js",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=23.0.0"
+  },
+  "scripts": {
+    "build": "npm run build -ws --if-present",
+    "compile": "npm run build && electron-builder build --config electron-builder.mjs",
+    "test": "npx playwright test ./tests/e2e.spec.ts",
+    "start": "node packages/dev-mode.js",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "create-renderer": "cd packages && npm create vite@latest renderer",
+    "integrate-renderer": "npm start --workspace @vite-electron-builder/integrate-renderer",
+    "init": "npm run create-renderer && npm run integrate-renderer && npm install"
+  },
+  "devDependencies": {
+    "@npmcli/map-workspaces": "4.0.2",
+    "@playwright/test": "1.49.0",
+    "@types/node": "22.10.2",
+    "electron": "33.2.1",
+    "electron-builder": "26.0.0-alpha.8",
+    "glob": "11.0.0",
+    "playwright": "1.49.0"
+  },
+  "dependencies": {
+    "@vite-electron-builder/main": "*"
+  }
+}
