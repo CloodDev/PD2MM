@@ -7,7 +7,7 @@ import {hardwareAccelerationMode} from './modules/HardwareAccelerationModule.js'
 import {autoUpdater} from './modules/AutoUpdater.js';
 import {allowInternalOrigins} from './modules/BlockNotAllowdOrigins.js';
 import {allowExternalUrls} from './modules/ExternalUrls.js';
-
+import { dialog } from 'electron';
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
@@ -20,7 +20,6 @@ export async function initApp(initConfig: AppInitConfig) {
     // Install DevTools extension if needed
     // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))
 
-    // Security
     .init(allowInternalOrigins(
       new Set(initConfig.renderer instanceof URL ? [initConfig.renderer.origin] : []),
     ))
@@ -41,6 +40,19 @@ export async function initApp(initConfig: AppInitConfig) {
           : [],
       )),
     );
-
   await moduleRunner;
 }
+
+
+import { ipcMain } from 'electron';
+ipcMain.handle('select-directory', async (event, operation) => {
+  const properties: Array<'openDirectory' | 'createDirectory'> = operation === 'export' ? ['openDirectory', 'createDirectory'] : ['openDirectory'];
+  const result = await dialog.showOpenDialog({
+      properties: properties
+  });
+  if (result.canceled) {
+      return null;
+  } else {
+      return result.filePaths[0];
+  }
+});

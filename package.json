@@ -36,6 +36,7 @@
     "playwright": "1.49.0"
   },
   "dependencies": {
-    "@vite-electron-builder/main": "*"
+    "@vite-electron-builder/main": "*",
+    "fs": "^0.0.1-security"
   }
 }
