@@ -166,3 +166,20 @@ ipcMain.handle("download-mod", async (event, operation) => {
   fs.unlinkSync(path + "/mod.zip");
   return "Downloaded";
 });
+
+ipcMain.handle("load-settings", async (event, operation) => {
+  try {
+    let settings = fs.readFileSync(process.env.APPDATA+"/PD2MM/settings.txt", "utf8");
+    return settings;
+  } catch (err) {
+
+    return false;
+  }
+});
+
+ipcMain.handle("sync-settings", async (event, operation) => {
+  if (!fs.existsSync(process.env.APPDATA + "/PD2MM")) {
+    fs.mkdirSync(process.env.APPDATA + "/PD2MM");
+  }
+  fs.writeFileSync(process.env.APPDATA+"/PD2MM/settings.txt", operation);
+});

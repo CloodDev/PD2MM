@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import './App.css'
 
 function App() { //
@@ -8,7 +8,15 @@ function App() { //
   const [selectedModData, setSelectedModData] = useState([]);
   const [modLink, setModLink] = useState('');
   useEffect(() => {
+    window.electron.ipcRenderer.invoke('load-settings').then((path) => {
+      if (path) {
+        setPath(path);
+      }
+    });
+  }, [])
+  useEffect(() => {
     if (path !== 'C:\\mods') {
+      window.electron.ipcRenderer.invoke('sync-settings', path);
       ListMods();
     }
   }, [path])
