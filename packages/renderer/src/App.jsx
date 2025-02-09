@@ -1,128 +1,135 @@
-import { use, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 
-function App() { //
+function App() {
   const [path, setPath] = useState('');
   const [modList, setModList] = useState([]);
   const [selected, setSelected] = useState(-1);
   const [selectedModData, setSelectedModData] = useState([]);
   const [modLink, setModLink] = useState('');
-  useEffect(() => {
-    window.electron.ipcRenderer.invoke('load-settings').then((path) => {
-      if (path) {
-        setPath(path);
-      }
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const getModInfo = {
+    author: () => selectedModData.author || 'No author found',
+    version: () => selectedModData.version || 'No version found',
+    name: () => selectedModData.name || modList[selected]
+  };
+
+  const handleDirectorySelect = async () => {
+    const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
+    setPath(exportPath);
+    listMods();
+    return exportPath;
+  };
+
+  const handleModDownload = async () => {
+    const success = await window.electron.ipcRenderer.invoke('download-mod', {
+      url: modLink,
+      path: `${path}/mods/`
     });
-  }, [])
+
+    if (!success) {
+      setErrorMessage('Failed to download mod');
+    }
+    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
+  };
+
+  const handleOpenFolder = () => {
+    window.electron.ipcRenderer.invoke('open-mod-folder', `${path}/mods/${modList[selected]}`);
+  };
+
+  const listMods = async () => {
+    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
+  };
+
+  useEffect(() => {
+    window.electron.ipcRenderer.invoke('load-settings').then((savedPath) => {
+      if (savedPath) setPath(savedPath);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
   useEffect(() => {
     if (path !== 'C:\\mods') {
       window.electron.ipcRenderer.invoke('sync-settings', path);
-      ListMods();
+      listMods();
     }
-  }, [path])
+  }, [path]);
 
   useEffect(() => {
     if (selected !== -1) {
-      window.electron.ipcRenderer.invoke('get-mod-data', path + "/mods/" + modList[selected]).then((data) => {
-        setSelectedModData(data);
-      });
+      window.electron.ipcRenderer.invoke('get-mod-data', `${path}/mods/${modList[selected]}`)
+        .then(setSelectedModData);
     }
-  }, [selected])
+  }, [selected]);
 
-  async function SelectDir() {
-    const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
-    setPath(exportPath);
-    ListMods();
-    return exportPath;
-  }
+  const renderModInfo = () => (
+    selected !== -1 && (
+      <>
+        <p className='title'>{getModInfo.name()}</p>
+        <p>Author: {getModInfo.author()}</p>
+        <p>Version: {getModInfo.version()}</p>
+        <button onClick={handleOpenFolder}>Open Mod Folder</button>
+      </>
+    )
+  );
 
-  function GetAuthor() {
-    if (selectedModData.author) {
-      return selectedModData.author;
-    }
-    else {
-      return 'No author found';
-    }
-  }
-  function GetVersion() {
-    if (selectedModData.version) {
-      return selectedModData.version;
-    }
-    else {
-      return 'No version found';
-    }
-  }
-  function GetName() {
-    if (selectedModData.name) {
-      return selectedModData.name;
-    }
-    else {
-      return modList[selected];
-    }
-  }
-  async function DwButton() {
-    await window.electron.ipcRenderer.invoke('download-mod', { url: modLink, path: path + "/mods/" })
-    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
-  }
-
-  async function ListMods() {
-    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
-  }
-
-  async function OpenFolder() {
-    await window.electron.ipcRenderer.invoke('open-mod-folder', path + "/mods/" + modList[selected]);
-  }
-  return (<div className='root'>
-    <div className="pathSelector">
-      <input
-        type="text"
-        id="pathInput"
-        className='pathInput'
-        placeholder="Payday 2 path..."
-        readOnly
-        onClick={() => SelectDir()}
-        value={path}
-      />
-    </div>
-    <div className='content'>
-      {modList.length > 0 ? (
-        <>
-          <div className="modList">
-            {modList.map((modName, modID) => (
-              <div className={`mod ${modID === selected ? 'selected' : ''}`} onClick={() => setSelected(modID)} key={modID}>
-                <div className="modName">{modName}</div>
+  return (
+    <div className='root'>
+      <div className="pathSelector">
+        <input
+          type="text"
+          className='pathInput'
+          placeholder="Payday 2 path..."
+          readOnly
+          onClick={handleDirectorySelect}
+          value={path}
+        />
+      </div>
+      <div className='content'>
+        {modList.length > 0 ? (
+          <>
+            <div className="modList">
+              {modList.map((modName, modID) => (
+                <div
+                  className={`mod ${modID === selected ? 'selected' : ''}`}
+                  onClick={() => setSelected(modID)}
+                  key={modID}
+                >
+                  <div className="modName">{modName}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rightList">
+              <div className="modDownload">
+                <div className="bigpart">
+                  <input
+                    type="text"
+                    className='modlink'
+                    placeholder="Link to mod..."
+                    onChange={(e) => setModLink(e.target.value)}
+                    value={modLink}
+                  />
+                  <button onClick={handleModDownload}>Download Mod</button>
+                </div>
+                <div className="errorMsg">{errorMessage}</div>
               </div>
-            ))}
-          </div>
-          <div className="rightList">
-            <div className="modInfo">
-              {selected !== -1 && (
-                <>
-                  <p className='title'>{GetName()}</p>
-                  <p>Author: {GetAuthor()}</p>
-                  <p>Version: {GetVersion()}</p>
-                  <button onClick={() => OpenFolder()}>Open Mod Folder</button>
-                </>
-              )}
+              <div className="modInfo">{renderModInfo()}</div>
             </div>
-            <div className="modDownload">
-              <input
-                type="text"
-                id="modlink"
-                className='modlink'
-                placeholder="Link to mod..."
-                onChange={(e) => setModLink(e.target.value)}
-                value={modLink}
-              />
-              <button onClick={() => DwButton()}>Download Mod</button>
-            </div>
+          </>
+        ) : (
+          <div className="noMods">
+            <p>No mods found</p>
           </div>
-        </>
-      ) : (
-        <div>Input path to Payday 2 Folder Above</div>
-      )}
+        )}
+      </div>
     </div>
-  </div>
   )
 }
 

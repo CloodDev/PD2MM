@@ -1,50 +1,92 @@
-.mod {
-  border: 1px solid #646cff;
-  padding: 4px;
-  margin: 4px;
-  border-radius: 4px;
+:root {
+  --primary-color: #646cff;
+  --border-radius: 4px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+}
+
+/* Layout Components */
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
 }
 
 .content {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  align-items: center;
-}
-
-.root {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  width: 95vw;
-}
-
-.selected {
-  background-color: #646cff;
-  color: white;
 }
 
 .rightList {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
-  margin-left: 12px;
+  margin-left: var(--spacing-lg);
 }
 
+/* Mod Elements */
+.mod {
+  border: 1px solid var(--primary-color);
+  padding: var(--spacing-sm);
+  margin: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+}
+
+.mod:hover {
+  background-color: #646cff40;
+}
+
+.selected {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* Path Selection */
 .pathSelector {
-  margin: 4px;
+  margin: var(--spacing-sm);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .pathInput {
-  width: 95vw;
-  padding: 4px;
-  border-radius: 4px;
-  border: 1px solid #646cff;
+  width: 100%;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--primary-color);
   height: 30px;
   line-height: 30px;
+  transition: border-color 0.2s ease;
 }
 
+.pathInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+}
+
+/* Typography */
 .title {
   font-size: 1.1em;
   font-weight: 500;
+}
+
+/* Download Section */
+.bigpart {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.modlink {
+  width: 100%;
+  margin-right: var(--spacing-md);
 }
