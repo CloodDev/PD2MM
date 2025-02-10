@@ -51,10 +51,10 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: ./.github/workflows/compile-and-test.yml
+    uses: ./.github/workflreacows/compile-and-test.yml
     with:
       renderer-template: ${{ inputs.renderer-template }}
-      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
+      app-version: ${{ needs.prepare.outputs.APP_VERSION }}
       distribution-channel: ${{inputs.distribution-channel}}
 
   deploy:
@@ -67,4 +67,4 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       distribution-channel: ${{ inputs.renderer-template }}
-      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
+      app-version: ${{ needs.prepare.outputs.APP_VERSION }}
