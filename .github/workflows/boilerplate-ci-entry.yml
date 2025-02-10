@@ -28,15 +28,15 @@ permissions:
 
 jobs:
   run-ci-for-template:
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     name: ci.yml
     uses: ./.github/workflows/ci.yml
     with:
       renderer-template: ${{ matrix.renderer-template }}
       distribution-channel: ${{ matrix.renderer-template }}
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
     strategy:
       fail-fast: false
       matrix:
