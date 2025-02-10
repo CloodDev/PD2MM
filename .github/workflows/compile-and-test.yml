@@ -55,7 +55,6 @@ jobs:
         with:
           renderer-template: ${{inputs.renderer-template}}
 
-      - run: npm version "${{inputs.app-version}}" --no-git-tag-version
       - run: npm run compile -- -p never
         env:
           VITE_DISTRIBUTION_CHANNEL: ${{inputs.distribution-channel}}
