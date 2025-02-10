@@ -51,7 +51,7 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: ./.github/workflreacows/compile-and-test.yml
+    uses: ./.github/workflows/compile-and-test.yml
     with:
       renderer-template: ${{ inputs.renderer-template }}
       app-version: ${{ needs.prepare.outputs.APP_VERSION }}
