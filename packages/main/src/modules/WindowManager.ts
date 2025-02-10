@@ -38,16 +38,16 @@ class WindowManager implements AppModule {
     } else {
       await browserWindow.loadFile(this.#renderer.path);
     }
-    browserWindow.setIcon('packages\\main\\src\\modules\\assets\\icon.png');
+
     return browserWindow;
   }
 
   async restoreOrCreateWindow(show = false) {
     let window = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
 
-    if (window === undefined) {
+    // if (window === undefined) {
       window = await this.createWindow();
-    }
+    // }
 
     if (!show) {
       return window;

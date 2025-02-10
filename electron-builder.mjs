@@ -15,7 +15,7 @@ export default /** @type import('electron-builder').Configuration */
   },
   win: {
     target: [{
-      target: 'nsis',
+      target: 'msi',
       arch: ['x64', 'ia32']
     }]
   },
