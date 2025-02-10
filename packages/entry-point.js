@@ -6,6 +6,7 @@ if (process.env.NODE_ENV === 'development' || process.env.PLAYWRIGHT_TEST === 't
     console.error(...args);
     process.exit(1);
   }
+  console.log('Development mode enabled');
 
   process.on('uncaughtException', showAndExit);
   process.on('unhandledRejection', showAndExit);

@@ -22,13 +22,12 @@ export async function initApp(initConfig: AppInitConfig) {
         openDevTools: import.meta.env.DEV,
       })
     )
-    .init(disallowMultipleAppInstance())
+    // .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
     .init(autoUpdater())
     // Install DevTools extension if needed
     // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))
-
     .init(
       allowInternalOrigins(
         new Set(
@@ -54,7 +53,12 @@ export async function initApp(initConfig: AppInitConfig) {
             : []
         )
       )
-    );
+    )
+    .init({
+      enable: () => {
+        console.log("App is ready");
+      }
+    });
   await moduleRunner;
 }
 
