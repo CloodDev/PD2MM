@@ -13,11 +13,17 @@ export default /** @type import('electron-builder').Configuration */
   linux: {
     target: ['deb'],
   },
+  win: {
+    target: [{
+      target: 'nsis',
+      arch: ['x64', 'ia32']
+    }]
+  },
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
    * as they can unpredictably change during deployment, making them impossible to locate and download for update.
    */
-  artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+  artifactName: 'PD2MM-${version}-${os}.${ext}',
   files: [
     'LICENSE*',
     'packages/entry-point.js',

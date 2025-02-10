@@ -37,6 +37,6 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - run: gh release create v${{inputs.app-version}} dist/root* dist/latest*.yml --repo ${{github.repository}}
+      - run: gh release create v${{inputs.app-version}} dist/pd2mm* dist/latest*.yml --repo ${{github.repository}}
         env:
           GH_TOKEN: ${{ github.token }}

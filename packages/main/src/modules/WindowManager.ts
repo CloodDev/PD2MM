@@ -38,7 +38,7 @@ class WindowManager implements AppModule {
     } else {
       await browserWindow.loadFile(this.#renderer.path);
     }
-
+    browserWindow.setIcon('packages\\main\\src\\modules\\assets\\icon.png');
     return browserWindow;
   }
 

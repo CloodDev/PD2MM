@@ -1,13 +1,12 @@
 {
-  "name": "root",
+  "name": "pd2mm",
   "description": "Secure boilerplate for Electron app based on Vite",
-  "version": "3.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "author": {
-    "email": "kozackunisoft@gmail.com",
-    "name": "Alex Kozack",
-    "url": "https://kozack.me"
+    "email": "cloodowy@gmail.com",
+    "name": "cloodowy"
   },
   "main": "packages/entry-point.js",
   "workspaces": [
