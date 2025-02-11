@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import './App.css'
 
 function App() {
@@ -12,9 +12,10 @@ function App() {
   const getModInfo = {
     author: () => selectedModData.author || 'No author found',
     version: () => selectedModData.version || 'No version found',
-    name: () => selectedModData.name || modList[selected]
+    name: () => selectedModData.name || modList[selected],
+    image:  () => selectedModData.image
   };
-
+  
   const handleDirectorySelect = async () => {
     const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
     setPath(exportPath);
@@ -64,7 +65,7 @@ function App() {
 
   useEffect(() => {
     if (selected !== -1) {
-      window.electron.ipcRenderer.invoke('get-mod-data', `${path}/mods/${modList[selected]}`)
+      window.electron.ipcRenderer.invoke('get-mod-data', `${path}\\mods\\${modList[selected]}`)
         .then(setSelectedModData);
     }
   }, [selected]);
@@ -72,6 +73,9 @@ function App() {
   const renderModInfo = () => (
     selected !== -1 && (
       <>
+        {getModInfo.image() && (
+          <img className="modImage" src={getModInfo.image()} alt={getModInfo.image()} />
+        )}
         <p className='title'>{getModInfo.name()}</p>
         <p>Author: {getModInfo.author()}</p>
         <p>Version: {getModInfo.version()}</p>

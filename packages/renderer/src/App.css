@@ -44,7 +44,12 @@
   background-color: var(--primary-color);
   color: white;
 }
-
+.modImage {
+  width: 100px;
+  height: 100px;
+  object-fit: scale-down;
+  border-radius: var(--border-radius);
+}
 /* Path Selection */
 .pathSelector {
   margin: var(--spacing-sm);

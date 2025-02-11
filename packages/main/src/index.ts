@@ -13,6 +13,7 @@ import { shell } from "electron";
 import { request } from "undici";
 import { ipcMain } from "electron";
 import { spawn } from "child_process";
+import { win32 } from "node:path";
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
@@ -106,10 +107,25 @@ ipcMain.handle("list-mods", async (event, operation) => {
 ipcMain.handle("get-mod-data", async (event, operation) => {
   try {
     let modText = fs.readFileSync(operation + "/mod.txt", "utf8");
-    let mod: { name: string; version: string; author: string } =
+    let mod: { name: string; version: string; author: string; image:string } =
       JSON.parse(modText);
+    let img = operation+"/"+mod.image;
+    for (let i = 0; i < img.length; i++) {
+      if (img[i] === "\\") {
+        img = img.replace("\\", "/");
+      }
+    }
+    if (mod.image == undefined) {
+      img = undefined;
+    } else {
+      let imageData = fs.readFileSync(img);
+      let base64Image = Buffer.from(imageData).toString('base64');
+      img = `data:image/png;base64,${base64Image}`;
+    }
+
     let mdata = {
       name: mod.name,
+      image: img,
       version: mod.version,
       author: mod.author,
     };
