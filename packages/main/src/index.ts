@@ -115,6 +115,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
         img = img.replace("\\", "/");
       }
     }
+    
     if (mod.image == undefined) {
       img = undefined;
     } else {
