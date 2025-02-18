@@ -67,4 +67,4 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       distribution-channel: ${{ inputs.renderer-template }}
-      app-version: ${{ needs.prepare.outputs.APP_VERSION }}
+      app-version: ${{ needs.prepare.outputs.APP_FULL_VERSION }}
