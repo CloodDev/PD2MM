@@ -50,7 +50,7 @@ thumbs.db
 
 # File-based project format
 *.iws
-
+package-lock.json
 # Editor-based Rest Client
 .idea/httpRequests
 /.idea/csv-plugin.xml
