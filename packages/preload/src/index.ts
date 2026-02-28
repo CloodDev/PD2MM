@@ -9,6 +9,12 @@ function send(channel: string, message: string) {
 contextBridge.exposeInMainWorld('electron', {
   ipcRenderer: {
     invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
+    on: (channel: string, func: (...args: unknown[]) => void) => {
+      ipcRenderer.on(channel, (_event, ...args) => func(...args));
+    },
+    removeListener: (channel: string, func: (...args: unknown[]) => void) => {
+      ipcRenderer.removeListener(channel, func);
+    }
   }        
 });
 
