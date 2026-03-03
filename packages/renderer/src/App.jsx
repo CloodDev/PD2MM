@@ -110,43 +110,77 @@ function App() {
     };
     
     // Listen for deep links (e.g., mws-pdmm://install/modid)
-    const handleDeepLink = (data) => {
-      console.log('Deep link received:', data);
+    const handleDeepLink = async (data) => {
+      console.log('★★★ RENDERER: Deep link received:', data);
+      console.trace('Deep link call stack');
       
       // Parse the deep link URL
       if (data.host === 'install' && data.pathname) {
+        console.log('★★★ RENDERER: Processing install command');
         // Extract mod ID or URL from pathname (e.g., /modid or /https://example.com/mod.zip)
         const param = data.pathname.substring(1); // Remove leading slash
+        console.log('★★★ RENDERER: Param:', param);
         
         if (param) {
           // If it starts with http, use it as the URL, otherwise treat it as mod ID
           const modUrl = param.startsWith('http') ? param : `https://modworkshop.net/mod/${param}`;
+          console.log('★★★ RENDERER: Mod URL:', modUrl);
           setModLink(modUrl);
-          setSuccessMessage(`🔗 Deep link received! Ready to install mod.`);
           
-          // Auto-select directory if not set
-          if (!path) {
-            handleDirectorySelect().then((selectedPath) => {
-              if (selectedPath) {
-                setSuccessMessage('🔗 Ready to install mod. Click "Download Mod" to proceed.');
-              }
-            });
+          // Check if path is set from settings
+          console.log('★★★ RENDERER: Current path:', path);
+          if (!path || path === 'C:/') {
+            console.error('★★★ RENDERER: No game directory configured');
+            setErrorMessage('⚠ Please select your Payday 2 directory first before using deep links!');
+            setTimeout(() => setErrorMessage(''), 5000);
+            return;
+          }
+          
+          setSuccessMessage(`🔗 Deep link received! Starting download...`);
+          console.log('★★★ RENDERER: Starting download to:', path);
+          
+          // Automatically start the download
+          setIsDownloading(true);
+          setErrorMessage('');
+          setDownloadProgress({ status: 'starting', progress: 0, error: '' });
+          
+          const success = await window.electron.ipcRenderer.invoke('download-mod', {
+            url: modUrl,
+            path: path
+          });
+
+          console.log('★★★ RENDERER: Download result:', success);
+          if (!success) {
+            setIsDownloading(false);
           } else {
-            setTimeout(() => setSuccessMessage(''), 3000);
+            setSuccessMessage('✓ Mod installed successfully via deep link!');
+            setModLink('');
+            await listMods();
+            
+            setTimeout(() => {
+              setIsDownloading(false);
+              setDownloadProgress({ status: '', progress: 0, error: '' });
+              setSuccessMessage('');
+            }, 3000);
           }
         }
+      } else {
+        console.log('★★★ RENDERER: Not an install command:', data);
       }
     };
     
     window.electron.ipcRenderer.on('download-progress', handleDownloadProgress);
     window.electron.ipcRenderer.on('deep-link', handleDeepLink);
     
+    console.log('★★★ RENDERER: Event listeners registered');
+    
     // Cleanup listeners on unmount
     return () => {
+      console.log('★★★ RENDERER: Cleaning up event listeners');
       window.electron.ipcRenderer.removeListener('download-progress', handleDownloadProgress);
       window.electron.ipcRenderer.removeListener('deep-link', handleDeepLink);
     };
-  }, []);
+  }, [path]);
 
   useEffect(() => {
     if (errorMessage) {

@@ -1,6 +1,6 @@
 import { AppModule } from '../AppModule.js';
 import { ModuleContext } from '../ModuleContext.js';
-import { BrowserWindow, app as electronApp } from 'electron';
+import { BrowserWindow, app as electronApp, dialog } from 'electron';
 
 const PROTOCOL_SCHEME = 'mws-pdmm';
 
@@ -11,20 +11,55 @@ class DeepLinkHandler implements AppModule {
   enable({ app }: ModuleContext): void {
     // Set as default protocol client for mws-pdmm://
     if (process.defaultApp) {
-      // In development mode with electron .
-      if (process.argv.length >= 2) {
-        app.setAsDefaultProtocolClient(PROTOCOL_SCHEME, process.execPath, [process.argv[1]]);
+      // In development mode - need to register with Electron and the entry point
+      const entryPoint = process.argv[1];
+      if (entryPoint && entryPoint !== '.' && !entryPoint.startsWith('--')) {
+        // Use the entry point file
+        app.setAsDefaultProtocolClient(PROTOCOL_SCHEME, process.execPath, [entryPoint]);
+        console.log('Registering protocol in dev mode:', {
+          scheme: PROTOCOL_SCHEME,
+          executable: process.execPath,
+          args: [entryPoint]
+        });
+      } else {
+        // Fallback - use current working directory
+        const cwdEntry = 'packages/entry-point.js';
+        app.setAsDefaultProtocolClient(PROTOCOL_SCHEME, process.execPath, [cwdEntry]);
+        console.log('Registering protocol in dev mode (fallback):', {
+          scheme: PROTOCOL_SCHEME,
+          executable: process.execPath,
+          args: [cwdEntry]
+        });
       }
     } else {
       app.setAsDefaultProtocolClient(PROTOCOL_SCHEME);
+      console.log('Registering protocol in production mode:', PROTOCOL_SCHEME);
     }
 
     // Handle protocol URLs on Windows/Linux (when app is already running)
-    app.on('second-instance', (_event, commandLine) => {
+    // This is the main way to handle deep links when clicking them while app is open
+    app.on('second-instance', (_event, commandLine, workingDirectory) => {
+      console.log('===== SECOND INSTANCE DETECTED =====');
+      console.log('Command line:', commandLine);
+      console.log('Working directory:', workingDirectory);
+      console.log('====================================');
+      
       // Find the protocol URL in command line arguments
       const url = commandLine.find(arg => arg.startsWith(`${PROTOCOL_SCHEME}://`));
       if (url) {
+        console.log('★★★ DEEP LINK FOUND:', url);
         this.handleDeepLink(url);
+      } else {
+        console.log('No deep link found, just focusing window');
+        // Just focus the window if no deep link
+        const mainWindow = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+          }
+          mainWindow.show();
+          mainWindow.focus();
+        }
       }
     });
 
@@ -35,6 +70,7 @@ class DeepLinkHandler implements AppModule {
     });
 
     // Handle protocol URL passed on app start (Windows/Linux)
+    // This is ONLY for the first launch with a deep link
     if (process.platform !== 'darwin') {
       const protocolUrl = process.argv.find(arg => arg.startsWith(`${PROTOCOL_SCHEME}://`));
       if (protocolUrl) {
@@ -75,13 +111,20 @@ class DeepLinkHandler implements AppModule {
   }
 
   handleDeepLink(url: string): void {
-    console.log('Deep link received:', url);
+    console.log('▶▶▶ handleDeepLink called with URL:', url);
     
     try {
       const parsedUrl = new URL(url);
+      console.log('Parsed URL:', {
+        protocol: parsedUrl.protocol,
+        host: parsedUrl.host,
+        pathname: parsedUrl.pathname,
+      });
       
       // Get the main window
       const mainWindow = BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
+      console.log('Main window found:', !!mainWindow);
+      console.log('Window loading:', mainWindow?.webContents.isLoading());
       
       if (mainWindow && mainWindow.webContents.isLoading() === false) {
         // Focus the window
@@ -92,20 +135,17 @@ class DeepLinkHandler implements AppModule {
         mainWindow.focus();
         
         // Send the deep link to the renderer process
-        console.log('Sending deep link to renderer:', {
-          url: url,
-          protocol: parsedUrl.protocol,
-          host: parsedUrl.host,
-          pathname: parsedUrl.pathname,
-        });
-        
-        mainWindow.webContents.send('deep-link', {
+        const deepLinkData = {
           url: url,
           protocol: parsedUrl.protocol,
           host: parsedUrl.host,
           pathname: parsedUrl.pathname,
           searchParams: Object.fromEntries(parsedUrl.searchParams)
-        });
+        };
+        
+        console.log('★★★ SENDING TO RENDERER:', deepLinkData);
+        mainWindow.webContents.send('deep-link', deepLinkData);
+        console.log('★★★ SENT TO RENDERER successfully');
       } else {
         // Store for when window becomes available
         console.log('Window not ready, storing deep link for later');
@@ -115,7 +155,7 @@ class DeepLinkHandler implements AppModule {
         }
       }
     } catch (error) {
-      console.error('Error parsing deep link URL:', error);
+      console.error('ERROR parsing deep link URL:', error);
     }
   }
 

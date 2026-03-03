@@ -5,9 +5,11 @@ class SingleInstanceApp implements AppModule {
   enable({app}: {app: Electron.App}): void {
     const isSingleInstance = app.requestSingleInstanceLock();
     if (!isSingleInstance) {
+      console.log('Another instance is already running. Quitting this instance...');
       app.quit();
       process.exit(0);
     }
+    console.log('Single instance lock acquired successfully');
   }
 }
 

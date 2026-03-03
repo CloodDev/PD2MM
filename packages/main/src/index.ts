@@ -17,9 +17,11 @@ import { spawn } from "child_process";
 import { win32 } from "node:path";
 
 export async function initApp(initConfig: AppInitConfig) {
+  const deepLinkHandler = createDeepLinkHandler();
+  
   const moduleRunner = createModuleRunner()
     .init(disallowMultipleAppInstance())
-    .init(createDeepLinkHandler())
+    .init(deepLinkHandler)
     .init(
       createWindowManagerModule({
         initConfig,
@@ -60,6 +62,12 @@ export async function initApp(initConfig: AppInitConfig) {
     .init({
       enable: () => {
         console.log("App is ready");
+        
+        // Make deep link handler available to IPC handlers
+        ipcMain.handle("handle-deep-link", async (event, url: string) => {
+          console.log('Deep link requested from renderer:', url);
+          deepLinkHandler.handleDeepLink(url);
+        });
         
         // Check available extraction tools
         console.log("\n=== Extraction Tools Check ===");
