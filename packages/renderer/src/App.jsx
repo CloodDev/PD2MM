@@ -109,7 +109,43 @@ function App() {
       }
     };
     
+    // Listen for deep links (e.g., mws-pdmm://install/modid)
+    const handleDeepLink = (data) => {
+      console.log('Deep link received:', data);
+      
+      // Parse the deep link URL
+      if (data.host === 'install' && data.pathname) {
+        // Extract mod ID or URL from pathname (e.g., /modid or /https://example.com/mod.zip)
+        const param = data.pathname.substring(1); // Remove leading slash
+        
+        if (param) {
+          // If it starts with http, use it as the URL, otherwise treat it as mod ID
+          const modUrl = param.startsWith('http') ? param : `https://modworkshop.net/mod/${param}`;
+          setModLink(modUrl);
+          setSuccessMessage(`🔗 Deep link received! Ready to install mod.`);
+          
+          // Auto-select directory if not set
+          if (!path) {
+            handleDirectorySelect().then((selectedPath) => {
+              if (selectedPath) {
+                setSuccessMessage('🔗 Ready to install mod. Click "Download Mod" to proceed.');
+              }
+            });
+          } else {
+            setTimeout(() => setSuccessMessage(''), 3000);
+          }
+        }
+      }
+    };
+    
     window.electron.ipcRenderer.on('download-progress', handleDownloadProgress);
+    window.electron.ipcRenderer.on('deep-link', handleDeepLink);
+    
+    // Cleanup listeners on unmount
+    return () => {
+      window.electron.ipcRenderer.removeListener('download-progress', handleDownloadProgress);
+      window.electron.ipcRenderer.removeListener('deep-link', handleDeepLink);
+    };
   }, []);
 
   useEffect(() => {

@@ -19,6 +19,10 @@ export default /** @type import('electron-builder').Configuration */
       arch: ['x64', 'ia32']
     }]
   },
+  protocols: [{
+    name: 'MWS-PDMM Protocol',
+    schemes: ['mws-pdmm']
+  }],
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
    * as they can unpredictably change during deployment, making them impossible to locate and download for update.

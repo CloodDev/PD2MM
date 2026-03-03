@@ -7,6 +7,7 @@ import { hardwareAccelerationMode } from "./modules/HardwareAccelerationModule.j
 import { autoUpdater } from "./modules/AutoUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
+import { createDeepLinkHandler } from "./modules/DeepLinkHandler.js";
 import { dialog, BrowserWindow } from "electron";
 import * as fs from "node:fs";
 import { shell } from "electron";
@@ -17,13 +18,14 @@ import { win32 } from "node:path";
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
+    .init(disallowMultipleAppInstance())
+    .init(createDeepLinkHandler())
     .init(
       createWindowManagerModule({
         initConfig,
         openDevTools: import.meta.env.DEV,
       })
     )
-    // .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
     .init(autoUpdater())
