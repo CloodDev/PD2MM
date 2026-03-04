@@ -1,29 +1,48 @@
 import {AppModule} from '../AppModule.js';
 import electronUpdater, {type AppUpdater, type Logger} from 'electron-updater';
+import type {ModuleContext} from '../ModuleContext.js';
 
 type DownloadNotification = Parameters<AppUpdater['checkForUpdatesAndNotify']>[0];
+const DEFAULT_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export class AutoUpdater implements AppModule {
 
   readonly #logger: Logger | null;
   readonly #notification: DownloadNotification;
+  readonly #checkIntervalMs: number;
 
   constructor(
     {
       logger = null,
       downloadNotification = undefined,
+      checkIntervalMs = DEFAULT_CHECK_INTERVAL_MS,
     }:
       {
         logger?: Logger | null | undefined,
-        downloadNotification?: DownloadNotification
+        downloadNotification?: DownloadNotification,
+        checkIntervalMs?: number
       } = {},
   ) {
     this.#logger = logger;
     this.#notification = downloadNotification;
+    this.#checkIntervalMs = checkIntervalMs;
   }
 
-  async enable(): Promise<void> {
+  async enable({app}: ModuleContext): Promise<void> {
+    if (!app.isPackaged) {
+      return;
+    }
+
+    await app.whenReady();
     await this.runAutoUpdater();
+
+    const timer = setInterval(() => {
+      this.runAutoUpdater().catch((error) => {
+        console.error('Failed to check for updates', error);
+      });
+    }, this.#checkIntervalMs);
+
+    timer.unref?.();
   }
 
   getAutoUpdater(): AppUpdater {

@@ -90,7 +90,7 @@ button.danger:hover {
   background: #c03537;
 }
 
-input {
+input:not([type="checkbox"]) {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -102,16 +102,16 @@ input {
   min-height: 38px;
 }
 
-input:hover {
+input:not([type="checkbox"]):hover {
   border-color: rgba(88, 101, 242, 0.4);
 }
 
-input:focus {
+input:not([type="checkbox"]):focus {
   outline: none;
   border-color: #5865f2;
   box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.15);
 }
 
-input::placeholder {
+input:not([type="checkbox"])::placeholder {
   color: #6d6f78;
 }

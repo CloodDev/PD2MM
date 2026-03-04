@@ -12,6 +12,7 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('');
   const [downloadProgress, setDownloadProgress] = useState({ status: '', progress: 0, error: '' });
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
 
   // Separate mods and overrides
   const regularMods = modList.filter(mod => mod.type === 'mod');
@@ -22,7 +23,8 @@ function App() {
     version: () => selectedModData.version || 'No version found',
     name: () => selectedModData.name || (modList[selected]?.name || 'Unknown'),
     image: () => selectedModData.image,
-    type: () => modList[selected]?.type || 'mod'
+    type: () => modList[selected]?.type || 'mod',
+    enabled: () => modList[selected]?.enabled !== false
   };
   
   const handleDirectorySelect = async () => {
@@ -32,29 +34,88 @@ function App() {
     return exportPath;
   };
 
-  const handleModDownload = async () => {
+  const downloadModFromUrl = async (url, successText) => {
     setIsDownloading(true);
     setErrorMessage('');
     setSuccessMessage('');
     setDownloadProgress({ status: 'starting', progress: 0, error: '' });
     
     const success = await window.electron.ipcRenderer.invoke('download-mod', {
-      url: modLink,
+      url,
       path: path
     });
 
     if (!success) {
       // Error message will be set by progress handler
       setIsDownloading(false);
-    } else {
-      setSuccessMessage('✓ Mod installed successfully!');
-      setModLink('');
-      await listMods();
-      setTimeout(() => {
-        setIsDownloading(false);
-        setDownloadProgress({ status: '', progress: 0, error: '' });
-        setSuccessMessage('');
-      }, 3000);
+      return false;
+    }
+
+    setSuccessMessage(successText);
+    setModLink('');
+    await listMods();
+    setTimeout(() => {
+      setIsDownloading(false);
+      setDownloadProgress({ status: '', progress: 0, error: '' });
+      setSuccessMessage('');
+    }, 3000);
+
+    return true;
+  };
+
+  const handleModDownload = async () => {
+    await downloadModFromUrl(modLink, '✓ Mod installed successfully!');
+  };
+
+  const handleCheckForModUpdate = async () => {
+    if (selected === -1 || !modList[selected]) {
+      return;
+    }
+
+    if (!path || path === 'C:/') {
+      setErrorMessage('Please select your Payday 2 directory first.');
+      return;
+    }
+
+    const mod = modList[selected];
+    setIsCheckingModUpdate(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const checkResult = await window.electron.ipcRenderer.invoke('check-mod-update', {
+        name: mod.name,
+        type: mod.type,
+        enabled: mod.enabled,
+        basePath: path
+      });
+
+      if (!checkResult?.success) {
+        setErrorMessage(`Failed to check for updates: ${checkResult?.error || 'Unknown error'}`);
+        return;
+      }
+
+      if (!checkResult.supported) {
+        setErrorMessage(checkResult.message || 'This mod does not have update metadata.');
+        return;
+      }
+
+      if (!checkResult.hasUpdate) {
+        setSuccessMessage(`✓ ${mod.name} is up to date (${checkResult.currentVersion || 'Unknown'})`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+        return;
+      }
+
+      const updateResult = await downloadModFromUrl(
+        checkResult.modUrl,
+        `✓ Updated ${mod.name} (${checkResult.currentVersion || 'Unknown'} → ${checkResult.latestVersion || 'Unknown'})`
+      );
+
+      if (updateResult) {
+        setSelected(-1);
+      }
+    } finally {
+      setIsCheckingModUpdate(false);
     }
   };
 
@@ -63,8 +124,46 @@ function App() {
     window.electron.ipcRenderer.invoke('open-mod-folder', {
       name: modList[selected].name,
       type: modList[selected].type,
+      enabled: modList[selected].enabled,
       basePath: path
     });
+  };
+
+  const handleModToggle = async (mod, enabled) => {
+    const result = await window.electron.ipcRenderer.invoke('toggle-mod-enabled', {
+      name: mod.name,
+      type: mod.type,
+      enabled,
+      basePath: path
+    });
+
+    if (result?.success) {
+      setSuccessMessage(`✓ Mod "${mod.name}" ${enabled ? 'enabled' : 'disabled'}!`);
+      setErrorMessage('');
+      const updatedMods = await listMods();
+      setTimeout(() => setSuccessMessage(''), 3000);
+      return { success: true, mods: updatedMods };
+    }
+
+    setErrorMessage(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${result?.error || 'Unknown error'}`);
+    return { success: false, mods: null };
+  };
+
+  const handleSelectedModToggle = async () => {
+    if (selected === -1 || !modList[selected]) return;
+
+    const currentMod = modList[selected];
+    const targetEnabled = currentMod.enabled === false;
+    const toggleResult = await handleModToggle(currentMod, targetEnabled);
+
+    if (!toggleResult?.success || !toggleResult.mods) {
+      return;
+    }
+
+    const nextSelectedIndex = toggleResult.mods.findIndex(
+      (mod) => mod.name === currentMod.name && mod.type === currentMod.type
+    );
+    setSelected(nextSelectedIndex);
   };
 
   const handleRemoveMod = async () => {
@@ -78,6 +177,7 @@ function App() {
     const result = await window.electron.ipcRenderer.invoke('remove-mod', {
       name: modList[selected].name,
       type: modList[selected].type,
+      enabled: modList[selected].enabled,
       basePath: path
     });
     
@@ -92,7 +192,9 @@ function App() {
   };
 
   const listMods = async () => {
-    setModList(await window.electron.ipcRenderer.invoke('list-mods', path));
+    const mods = await window.electron.ipcRenderer.invoke('list-mods', path);
+    setModList(mods);
+    return mods;
   };
 
   useEffect(() => {
@@ -201,6 +303,7 @@ function App() {
       window.electron.ipcRenderer.invoke('get-mod-data', {
         name: modList[selected].name,
         type: modList[selected].type,
+        enabled: modList[selected].enabled,
         basePath: path
       }).then(setSelectedModData);
     }
@@ -217,6 +320,7 @@ function App() {
             <h2 className='title'>{getModInfo.name()}</h2>
             <div className="mod-type-badge">
               {getModInfo.type() === 'override' ? '📦 Mod Override' : '🔧 BLT/BeardLib Mod'}
+              {getModInfo.enabled() ? '' : ' • Disabled'}
             </div>
             <div>
               <div className="info-label">Author</div>
@@ -230,8 +334,21 @@ function App() {
         </div>
         <div className="mod-info-body">
           <div className="mod-info-actions">
+            <button
+              className={`action-button ${getModInfo.enabled() ? 'secondary' : 'success'}`}
+              onClick={handleSelectedModToggle}
+            >
+              {getModInfo.enabled() ? '⏸️ Disable Mod' : '▶️ Enable Mod'}
+            </button>
             <button className="action-button success" onClick={handleOpenFolder}>
               📁 Open Mod Folder
+            </button>
+            <button
+              className="action-button secondary"
+              onClick={handleCheckForModUpdate}
+              disabled={isDownloading || isCheckingModUpdate}
+            >
+              {isCheckingModUpdate ? '⏳ Checking...' : '🔄 Check for Updates'}
             </button>
             <button className="action-button danger" onClick={handleRemoveMod}>
               🗑️ Remove Mod
@@ -272,15 +389,15 @@ function App() {
                   <>
                     <div className="sidebar-section-title">🔧 BLT/BeardLib Mods • {regularMods.length}</div>
                     <div className="modList">
-                      {regularMods.map((mod, idx) => {
+                      {regularMods.map((mod) => {
                         const globalIndex = modList.indexOf(mod);
                         return (
                           <div
-                            className={`mod ${globalIndex === selected ? 'selected' : ''}`}
+                            className={`mod ${globalIndex === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
                             onClick={() => setSelected(globalIndex)}
                             key={globalIndex}
                           >
-                            <div className="modName">{mod.name}</div>
+                            <div className={`modName ${mod.enabled === false ? 'disabled' : ''}`}>{mod.name}</div>
                           </div>
                         );
                       })}
@@ -292,15 +409,15 @@ function App() {
                   <>
                     <div className="sidebar-section-title">📦 Mod Overrides • {modOverrides.length}</div>
                     <div className="modList">
-                      {modOverrides.map((mod, idx) => {
+                      {modOverrides.map((mod) => {
                         const globalIndex = modList.indexOf(mod);
                         return (
                           <div
-                            className={`mod ${globalIndex === selected ? 'selected' : ''}`}
+                            className={`mod ${globalIndex === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
                             onClick={() => setSelected(globalIndex)}
                             key={globalIndex}
                           >
-                            <div className="modName">
+                            <div className={`modName ${mod.enabled === false ? 'disabled' : ''}`}>
                               <span className="mod-badge">📦</span>
                               {mod.name}
                             </div>

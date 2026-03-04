@@ -16,6 +16,270 @@ import { ipcMain } from "electron";
 import { spawn } from "child_process";
 import { win32 } from "node:path";
 
+const DISABLED_MODS_DIR = ".pd2mm_disabled";
+const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
+
+const getActiveModPath = (basePath: string, type: string, name: string) =>
+  type === "override"
+    ? `${basePath}/assets/mod_overrides/${name}`
+    : `${basePath}/mods/${name}`;
+
+const getDisabledModsContainerPath = (basePath: string, type: string) =>
+  type === "override"
+    ? `${basePath}/assets/mod_overrides/${DISABLED_MODS_DIR}`
+    : `${basePath}/mods/${DISABLED_MODS_DIR}`;
+
+const getDisabledModPath = (basePath: string, type: string, name: string) =>
+  `${getDisabledModsContainerPath(basePath, type)}/${name}`;
+
+const ensureDirectory = (dirPath: string) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+const moveDirectoryReplacingIfExists = (sourcePath: string, destinationPath: string) => {
+  if (!fs.existsSync(sourcePath)) {
+    return false;
+  }
+
+  const destinationParent = destinationPath.substring(0, destinationPath.lastIndexOf("/"));
+  ensureDirectory(destinationParent);
+
+  if (fs.existsSync(destinationPath)) {
+    fs.rmSync(destinationPath, { recursive: true, force: true });
+  }
+
+  fs.renameSync(sourcePath, destinationPath);
+  return true;
+};
+
+type ParsedModMetadata = {
+  name?: string;
+  version?: string;
+  author?: string;
+  image?: string;
+};
+
+type Pd2mmModSourceMetadata = {
+  provider: "modworkshop";
+  modId: string;
+  sourceUrl: string;
+  savedAt: string;
+};
+
+type ModWorkshopFile = {
+  id?: string | number;
+  version?: string;
+  download_url?: string;
+};
+
+const MOD_SOURCE_METADATA_FILE = ".pd2mm-source.json";
+
+const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
+  try {
+    const parsed = JSON.parse(rawContent);
+    if (parsed && typeof parsed === "object") {
+      return parsed as ParsedModMetadata;
+    }
+  } catch {
+    // Fall through to tolerant parser
+  }
+
+  const content = rawContent.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const extractValue = (key: string): string | undefined => {
+    const keyRegex = new RegExp(`[\"']?${key}[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']`, "i");
+    const match = content.match(keyRegex);
+    return match?.[1];
+  };
+
+  const fallback: ParsedModMetadata = {
+    name: extractValue("name"),
+    version: extractValue("version"),
+    author: extractValue("author"),
+    image: extractValue("image"),
+  };
+
+  const hasAnyValue = Object.values(fallback).some((value) => Boolean(value));
+  return hasAnyValue ? fallback : null;
+};
+
+const getModSourceMetadataPath = (modPath: string) => `${modPath}/${MOD_SOURCE_METADATA_FILE}`;
+
+const saveModSourceMetadata = (modPath: string, metadata: Pd2mmModSourceMetadata) => {
+  try {
+    fs.writeFileSync(getModSourceMetadataPath(modPath), JSON.stringify(metadata, null, 2), "utf8");
+  } catch (error) {
+    console.warn("Failed to save mod source metadata:", error);
+  }
+};
+
+const loadModSourceMetadata = (modPath: string): Pd2mmModSourceMetadata | null => {
+  try {
+    const metadataPath = getModSourceMetadataPath(modPath);
+    if (!fs.existsSync(metadataPath)) {
+      return null;
+    }
+
+    const content = fs.readFileSync(metadataPath, "utf8");
+    const parsed = JSON.parse(content);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    if (parsed.provider !== "modworkshop" || typeof parsed.modId !== "string") {
+      return null;
+    }
+
+    return parsed as Pd2mmModSourceMetadata;
+  } catch {
+    return null;
+  }
+};
+
+const extractModWorkshopId = (value: string | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const urlMatch = trimmed.match(/modworkshop\.net\/mod\/(\d+)/i);
+  if (urlMatch?.[1]) {
+    return urlMatch[1];
+  }
+
+  const idMatch = trimmed.match(/^(\d+)$/);
+  if (idMatch?.[1]) {
+    return idMatch[1];
+  }
+
+  return null;
+};
+
+const tryExtractModWorkshopIdFromModTxt = (rawContent: string): string | null => {
+  const urlMatch = rawContent.match(/modworkshop\.net\/mod\/(\d+)/i);
+  if (urlMatch?.[1]) {
+    return urlMatch[1];
+  }
+
+  const hostIdMatch = rawContent.match(/host["']?\s*[:=]\s*["']modworkshop["'][\s\S]{0,240}?id["']?\s*[:=]\s*["']?(\d+)/i);
+  if (hostIdMatch?.[1]) {
+    return hostIdMatch[1];
+  }
+
+  try {
+    const parsed = JSON.parse(rawContent);
+    if (parsed && typeof parsed === "object") {
+      const updates = (parsed as {updates?: unknown}).updates;
+      if (Array.isArray(updates)) {
+        for (const entry of updates) {
+          if (!entry || typeof entry !== "object") {
+            continue;
+          }
+
+          const updateEntry = entry as {host?: string; id?: string | number; page?: string; url?: string};
+          const host = updateEntry.host?.toLowerCase();
+          if (host && !host.includes("modworkshop")) {
+            continue;
+          }
+
+          const fromId = extractModWorkshopId(String(updateEntry.id ?? ""));
+          if (fromId) {
+            return fromId;
+          }
+
+          const fromUrl = extractModWorkshopId(updateEntry.url) || extractModWorkshopId(updateEntry.page);
+          if (fromUrl) {
+            return fromUrl;
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore JSON parsing errors and rely on regex fallback.
+  }
+
+  return null;
+};
+
+const getInstalledModVersion = (modPath: string): string => {
+  const modTxtPath = `${modPath}/mod.txt`;
+  if (fs.existsSync(modTxtPath)) {
+    const parsed = tryParseModTxt(fs.readFileSync(modTxtPath, "utf8"));
+    if (parsed?.version) {
+      return parsed.version;
+    }
+  }
+
+  const mainXmlPath = `${modPath}/main.xml`;
+  if (fs.existsSync(mainXmlPath)) {
+    const xmlText = fs.readFileSync(mainXmlPath, "utf8");
+    const versionMatch = xmlText.match(/<version>([^<]+)<\/version>/);
+    if (versionMatch?.[1]) {
+      return versionMatch[1];
+    }
+  }
+
+  return "Unknown";
+};
+
+const compareVersionStrings = (currentVersion: string, latestVersion: string): number => {
+  const currentParts = currentVersion.match(/\d+/g)?.map(Number) ?? [];
+  const latestParts = latestVersion.match(/\d+/g)?.map(Number) ?? [];
+
+  if (currentParts.length === 0 || latestParts.length === 0) {
+    return currentVersion.localeCompare(latestVersion, undefined, {numeric: true, sensitivity: "base"});
+  }
+
+  const maxLength = Math.max(currentParts.length, latestParts.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const current = currentParts[index] ?? 0;
+    const latest = latestParts[index] ?? 0;
+    if (current < latest) {
+      return -1;
+    }
+    if (current > latest) {
+      return 1;
+    }
+  }
+
+  return 0;
+};
+
+const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | null> => {
+  const apiURL = `https://api.modworkshop.net/mods/${modId}/files`;
+  const { statusCode, body } = await request(apiURL, {
+    headers: {
+      "User-Agent": "PD2MM/1.0",
+    },
+  });
+
+  if (statusCode !== 200) {
+    return null;
+  }
+
+  const response = await body.json() as unknown;
+  if (!response || typeof response !== "object") {
+    return null;
+  }
+
+  const typedResponse = response as {data?: unknown};
+  if (Array.isArray(typedResponse.data)) {
+    return typedResponse.data as ModWorkshopFile[];
+  }
+
+  const nestedData = typedResponse.data as {files?: unknown} | undefined;
+  if (nestedData && Array.isArray(nestedData.files)) {
+    return nestedData.files as ModWorkshopFile[];
+  }
+
+  return null;
+};
+
 export async function initApp(initConfig: AppInitConfig) {
   const deepLinkHandler = createDeepLinkHandler();
   
@@ -120,7 +384,18 @@ ipcMain.handle("list-mods", async (event, operation) => {
     return [];
   }
   try {
-    const allMods: Array<{name: string, type: string}> = [];
+    const allMods: Array<{name: string, type: string, enabled: boolean}> = [];
+    const discoveredMods = new Set<string>();
+
+    const addModEntry = (name: string, type: string, enabled: boolean) => {
+      const key = `${type}:${name}`;
+      if (discoveredMods.has(key)) {
+        return;
+      }
+
+      discoveredMods.add(key);
+      allMods.push({ name, type, enabled });
+    };
     
     // Check regular mods folder
     const modsPath = operation + "/mods";
@@ -128,10 +403,30 @@ ipcMain.handle("list-mods", async (event, operation) => {
       const mods = fs.readdirSync(modsPath);
       mods.forEach((mod) => {
         // Skip utility folders
-        if (["saves", "logs", "downloads", "base"].includes(mod)) {
+        if (MOD_UTILITY_FOLDERS.has(mod)) {
           return;
         }
-        allMods.push({ name: mod, type: "mod" });
+
+        const modPath = `${modsPath}/${mod}`;
+        if (!fs.statSync(modPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(mod, "mod", true);
+      });
+    }
+
+    // Check disabled regular mods
+    const disabledModsPath = getDisabledModsContainerPath(operation, "mod");
+    if (fs.existsSync(disabledModsPath)) {
+      const disabledMods = fs.readdirSync(disabledModsPath);
+      disabledMods.forEach((mod) => {
+        const modPath = `${disabledModsPath}/${mod}`;
+        if (!fs.statSync(modPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(mod, "mod", false);
       });
     }
     
@@ -140,7 +435,30 @@ ipcMain.handle("list-mods", async (event, operation) => {
     if (fs.existsSync(modOverridesPath)) {
       const overrides = fs.readdirSync(modOverridesPath);
       overrides.forEach((mod) => {
-        allMods.push({ name: mod, type: "override" });
+        if (mod === DISABLED_MODS_DIR) {
+          return;
+        }
+
+        const modPath = `${modOverridesPath}/${mod}`;
+        if (!fs.statSync(modPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(mod, "override", true);
+      });
+    }
+
+    // Check disabled overrides
+    const disabledOverridesPath = getDisabledModsContainerPath(operation, "override");
+    if (fs.existsSync(disabledOverridesPath)) {
+      const disabledOverrides = fs.readdirSync(disabledOverridesPath);
+      disabledOverrides.forEach((mod) => {
+        const modPath = `${disabledOverridesPath}/${mod}`;
+        if (!fs.statSync(modPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(mod, "override", false);
       });
     }
     
@@ -154,16 +472,20 @@ ipcMain.handle("list-mods", async (event, operation) => {
 ipcMain.handle("get-mod-data", async (event, operation) => {
   try {
     const modData = operation;
-    const modPath = modData.type === "override" 
-      ? `${operation.basePath}/assets/mod_overrides/${modData.name}`
-      : `${operation.basePath}/mods/${modData.name}`;
+    const isEnabled = modData.enabled !== false;
+    const modPath = isEnabled
+      ? getActiveModPath(operation.basePath, modData.type, modData.name)
+      : getDisabledModPath(operation.basePath, modData.type, modData.name);
     
     // Try to read mod.txt
     let modTextPath = modPath + "/mod.txt";
     if (fs.existsSync(modTextPath)) {
       let modText = fs.readFileSync(modTextPath, "utf8");
-      let mod: { name: string; version: string; author: string; image: string } =
-        JSON.parse(modText);
+      const mod = tryParseModTxt(modText);
+
+      if (!mod) {
+        throw new Error("Could not parse mod.txt metadata");
+      }
       
       let img = undefined;
       if (mod.image) {
@@ -178,10 +500,10 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       }
 
       return {
-        name: mod.name,
+        name: mod.name || modData.name,
         image: img,
-        version: mod.version,
-        author: mod.author,
+        version: mod.version || "Unknown",
+        author: mod.author || "Unknown",
       };
     }
     
@@ -218,18 +540,88 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
   }
 });
 
+ipcMain.handle("check-mod-update", async (event, operation) => {
+  try {
+    const isEnabled = operation.enabled !== false;
+    const modPath = isEnabled
+      ? getActiveModPath(operation.basePath, operation.type, operation.name)
+      : getDisabledModPath(operation.basePath, operation.type, operation.name);
+
+    if (!fs.existsSync(modPath)) {
+      return { success: false, error: "Mod folder not found" };
+    }
+
+    let modId = loadModSourceMetadata(modPath)?.modId ?? null;
+
+    if (!modId) {
+      const modTxtPath = `${modPath}/mod.txt`;
+      if (fs.existsSync(modTxtPath)) {
+        const rawModTxt = fs.readFileSync(modTxtPath, "utf8");
+        const extractedId = tryExtractModWorkshopIdFromModTxt(rawModTxt);
+        if (extractedId) {
+          modId = extractedId;
+          saveModSourceMetadata(modPath, {
+            provider: "modworkshop",
+            modId: extractedId,
+            sourceUrl: `https://modworkshop.net/mod/${extractedId}`,
+            savedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    if (!modId) {
+      return {
+        success: true,
+        supported: false,
+        hasUpdate: false,
+        message: "No ModWorkshop update metadata found for this mod.",
+      };
+    }
+
+    const files = await getModWorkshopFiles(modId);
+    if (!files || files.length === 0) {
+      return { success: false, error: "Could not fetch update info from ModWorkshop" };
+    }
+
+    const latestFile = files[0];
+    const latestVersion = String(latestFile.version ?? "Unknown");
+    const currentVersion = getInstalledModVersion(modPath);
+    const hasUpdate = latestVersion !== "Unknown" && compareVersionStrings(currentVersion, latestVersion) < 0;
+
+    return {
+      success: true,
+      supported: true,
+      hasUpdate,
+      currentVersion,
+      latestVersion,
+      modId,
+      modUrl: `https://modworkshop.net/mod/${modId}`,
+    };
+  } catch (error) {
+    console.error("Error checking mod updates:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+
 ipcMain.handle("open-mod-folder", async (event, operation) => {
-  const modPath = operation.type === "override"
-    ? `${operation.basePath}/assets/mod_overrides/${operation.name}`
-    : `${operation.basePath}/mods/${operation.name}`;
+  const isEnabled = operation.enabled !== false;
+  const modPath = isEnabled
+    ? getActiveModPath(operation.basePath, operation.type, operation.name)
+    : getDisabledModPath(operation.basePath, operation.type, operation.name);
   shell.openPath(modPath);
 });
 
 ipcMain.handle("remove-mod", async (event, operation) => {
   try {
-    const modPath = operation.type === "override"
-      ? `${operation.basePath}/assets/mod_overrides/${operation.name}`
-      : `${operation.basePath}/mods/${operation.name}`;
+    const activePath = getActiveModPath(operation.basePath, operation.type, operation.name);
+    const disabledPath = getDisabledModPath(operation.basePath, operation.type, operation.name);
+    const modPath = typeof operation.enabled === "boolean"
+      ? (operation.enabled ? activePath : disabledPath)
+      : (fs.existsSync(activePath) ? activePath : disabledPath);
     
     console.log(`Removing mod: ${operation.name} (${operation.type})`);
     console.log(`Path: ${modPath}`);
@@ -246,6 +638,37 @@ ipcMain.handle("remove-mod", async (event, operation) => {
     return { success: true };
   } catch (err) {
     console.error("Error removing mod:", err);
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle("toggle-mod-enabled", async (event, operation) => {
+  try {
+    const { basePath, type, name, enabled } = operation;
+    const sourcePath = enabled
+      ? getDisabledModPath(basePath, type, name)
+      : getActiveModPath(basePath, type, name);
+    const destinationPath = enabled
+      ? getActiveModPath(basePath, type, name)
+      : getDisabledModPath(basePath, type, name);
+
+    if (!enabled) {
+      ensureDirectory(getDisabledModsContainerPath(basePath, type));
+    }
+
+    const moved = moveDirectoryReplacingIfExists(sourcePath, destinationPath);
+    if (!moved) {
+      return {
+        success: false,
+        error: enabled
+          ? "Disabled mod folder not found"
+          : "Enabled mod folder not found",
+      };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Error toggling mod enabled state:", err);
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 });
@@ -336,6 +759,12 @@ ipcMain.handle("download-mod", async (event, operation) => {
     
     const modID = modIDParts[1].split("/")[0].split("?")[0]; // Handle URLs with extra paths or query params
     console.log("Extracted Mod ID:", modID);
+    const sourceMetadata: Pd2mmModSourceMetadata = {
+      provider: "modworkshop",
+      modId: modID,
+      sourceUrl: `https://modworkshop.net/mod/${modID}`,
+      savedAt: new Date().toISOString(),
+    };
     
     // Fetch mod data from API
     console.log("Fetching mod data from API...");
@@ -727,6 +1156,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
           
           console.log("Installing to:", destPath);
           fs.renameSync(itemPath, destPath);
+          saveModSourceMetadata(destPath, sourceMetadata);
           modInstalled = true;
           console.log("✓ BeardLib mod installed:", item);
         }
@@ -748,6 +1178,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
           
           console.log("Installing to:", destPath);
           fs.renameSync(itemPath, destPath);
+          saveModSourceMetadata(destPath, sourceMetadata);
           modInstalled = true;
           console.log("✓ BLT mod installed:", item);
         }
@@ -779,6 +1210,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
               
               console.log("Installing override:", subItem);
               fs.renameSync(srcPath, destPath);
+              saveModSourceMetadata(destPath, sourceMetadata);
               console.log("✓ Override installed:", subItem);
             });
             modInstalled = true;
@@ -793,6 +1225,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
             
             console.log("Installing override to:", destPath);
             fs.renameSync(itemPath, destPath);
+            saveModSourceMetadata(destPath, sourceMetadata);
             modInstalled = true;
             console.log("✓ Override installed:", item);
           }
