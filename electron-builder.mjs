@@ -10,9 +10,6 @@ export default /** @type import('electron-builder').Configuration */
     buildResources: 'buildResources',
   },
   generateUpdatesFilesForAllChannels: true,
-  linux: {
-    target: ['deb'],
-  },
   win: {
     target: [{
       target: 'nsis',

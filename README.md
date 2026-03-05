@@ -24,6 +24,12 @@ A modern desktop application designed to help manage and organize mods for Payda
 2. **Enable/Disable**: Toggle mods on or off without deleting them
 3. **Organize**: Create categories and groups to keep your mods organized
 
+## 🛠️ Development Builds
+
+- Build Windows installer bundles:
+	- `npm run compile`
+	- `npm run compile:win`
+
 ## 📄 License
 
 MIT License - Free and open source
