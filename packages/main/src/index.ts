@@ -8,7 +8,7 @@ import { autoUpdater } from "./modules/AutoUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { createDeepLinkHandler } from "./modules/DeepLinkHandler.js";
-import { dialog, BrowserWindow } from "electron";
+import { dialog, BrowserWindow, app } from "electron";
 import * as fs from "node:fs";
 import { shell } from "electron";
 import { request } from "undici";
@@ -1335,4 +1335,63 @@ ipcMain.handle("window-maximize", async (event) => {
 ipcMain.handle("window-close", async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   window?.close();
+});
+
+ipcMain.handle("check-app-update", async () => {
+  // if (!app.isPackaged) {
+  //   return {
+  //     success: false,
+  //     skipped: true,
+  //     message: "Update checks are only available in packaged builds.",
+  //   };
+  // }
+
+  try {
+    console.debug("[auto-updater][manual] check requested");
+    const updaterModule = await import("electron-updater");
+    const updater = updaterModule.default.autoUpdater;
+    updater.logger = console;
+    updater.fullChangelog = true;
+
+    if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
+      updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
+    }
+
+    console.debug("[auto-updater][manual] checking for updates", {
+      channel: updater.channel,
+    });
+
+    const result = await updater.checkForUpdates();
+    const hasUpdate = Boolean(result?.updateInfo?.version);
+
+    console.debug("[auto-updater][manual] check completed", {
+      hasUpdate,
+      version: result?.updateInfo?.version ?? null,
+    });
+
+    return {
+      success: true,
+      hasUpdate,
+      version: result?.updateInfo?.version ?? null,
+      message: hasUpdate
+        ? `Update available${result?.updateInfo?.version ? `: ${result.updateInfo.version}` : ""}`
+        : "No updates available.",
+    };
+  } catch (error) {
+    console.error("[auto-updater][manual] check failed", error);
+    if (error instanceof Error && error.message.includes("No published versions")) {
+      return {
+        success: true,
+        hasUpdate: false,
+        version: null,
+        message: "No updates available.",
+      };
+    }
+
+    return {
+      success: false,
+      skipped: false,
+      message: error instanceof Error ? error.message : "Failed to check for updates.",
+    };
+  }
 });

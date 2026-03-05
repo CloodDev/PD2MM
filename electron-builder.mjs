@@ -5,11 +5,19 @@ import {pathToFileURL} from 'node:url';
 
 export default /** @type import('electron-builder').Configuration */
 ({
+  appId: 'com.clooddev.pd2mm',
+  productName: 'PD2MM',
   directories: {
     output: 'dist',
     buildResources: 'buildResources',
   },
   generateUpdatesFilesForAllChannels: true,
+  publish: {
+    provider: 'github',
+    owner: 'CloodDev',
+    repo: 'PD2MM',
+    releaseType: 'release',
+  },
   linux: {
     target: ['deb'],
   },

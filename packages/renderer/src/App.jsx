@@ -13,6 +13,7 @@ function App() {
   const [downloadProgress, setDownloadProgress] = useState({ status: '', progress: 0, error: '' });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
+  const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
 
   // Separate mods and overrides
   const regularMods = modList.filter(mod => mod.type === 'mod');
@@ -116,6 +117,40 @@ function App() {
       }
     } finally {
       setIsCheckingModUpdate(false);
+    }
+  };
+
+  const handleCheckForAppUpdate = async () => {
+    setIsCheckingAppUpdate(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke('check-app-update');
+
+      if (!result?.success) {
+        const failureMessage = result?.message || 'Failed to check for app updates.';
+        if (result?.skipped) {
+          setSuccessMessage(`ℹ️ ${failureMessage}`);
+          setTimeout(() => setSuccessMessage(''), 4000);
+          return;
+        }
+
+        setErrorMessage(failureMessage);
+        return;
+      }
+
+      if (result?.hasUpdate) {
+        setSuccessMessage(`⬆️ Update available${result?.version ? `: ${result.version}` : ''}`);
+      } else {
+        setSuccessMessage('✓ App is up to date');
+      }
+
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to check for app updates.');
+    } finally {
+      setIsCheckingAppUpdate(false);
     }
   };
 
@@ -440,6 +475,15 @@ function App() {
         <div className="main-content">
           <div className="content-header">
             <h3 className="section-title">Download Mod</h3>
+            <div className="content-header-actions">
+              <button
+                className="action-button secondary"
+                onClick={handleCheckForAppUpdate}
+                disabled={isCheckingAppUpdate}
+              >
+                {isCheckingAppUpdate ? '⏳ Checking App Update...' : '🔄 Check App Update'}
+              </button>
+            </div>
           </div>
           <div className="content-body">
             <div className="modDownload">
