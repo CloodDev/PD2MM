@@ -2,12 +2,28 @@
 # It is from here that all other workflows are launched.
 name: Entry CI
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - .editorconfig
+      - '.idea/**'
+      - '.vscode/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - .editorconfig
+      - '.idea/**'
+      - '.vscode/**'
+  workflow_dispatch:
   workflow_call:
     inputs:
       distribution-channel:
         description: Distribution channel for release. It can be `beta`, `alpha` or any string.
         type: string
-        required: true
+        required: false
+        default: 'beta'
       renderer-template:
         description: Define what vite template should be used to create renderer in case if renderer package doesn't exist
         required: false
@@ -38,7 +54,7 @@ jobs:
       - id: APP_VERSION
         run: echo "APP_VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
       - id: APP_FULL_VERSION
-        run: echo "APP_FULL_VERSION=${{ steps.APP_VERSION.outputs.APP_VERSION }}-${{inputs.distribution-channel}}.${{ steps.COMMIT_TIMESTAMP.outputs.COMMIT_TIMESTAMP }}" >> $GITHUB_OUTPUT
+        run: echo "APP_FULL_VERSION=${{ steps.APP_VERSION.outputs.APP_VERSION }}-${{ inputs.distribution-channel || 'beta' }}.${{ steps.COMMIT_TIMESTAMP.outputs.COMMIT_TIMESTAMP }}" >> $GITHUB_OUTPUT
       - run: |
           echo "- \`COMMIT_TIMESTAMP\`: ${{ steps.COMMIT_TIMESTAMP.outputs.COMMIT_TIMESTAMP }}" >> $GITHUB_STEP_SUMMARY
           echo "- \`APP_VERSION\`: ${{ steps.APP_VERSION.outputs.APP_VERSION }}" >> $GITHUB_STEP_SUMMARY
@@ -55,7 +71,7 @@ jobs:
     with:
       renderer-template: ${{ inputs.renderer-template }}
       app-version: ${{ needs.prepare.outputs.APP_VERSION }}
-      distribution-channel: ${{inputs.distribution-channel}}
+      distribution-channel: ${{ inputs.distribution-channel || 'beta' }}
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -66,5 +82,5 @@ jobs:
       - compile-and-test
     uses: ./.github/workflows/deploy.yml
     with:
-      distribution-channel: ${{ inputs.renderer-template }}
+      distribution-channel: ${{ inputs.distribution-channel || 'beta' }}
       app-version: ${{ needs.prepare.outputs.APP_VERSION }}
