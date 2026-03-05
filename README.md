@@ -28,6 +28,9 @@ A modern desktop application designed to help manage and organize mods for Payda
 
 - Build Windows installer bundles:
 	- `npm run compile`
+- Publish a GitHub release with artifacts:
+	- `gh auth login`
+	- `npm run publish`
 
 ## 📄 License
 

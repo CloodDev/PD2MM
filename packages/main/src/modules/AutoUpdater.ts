@@ -3,7 +3,10 @@ import electronUpdater, {type AppUpdater, type Logger} from 'electron-updater';
 import type {ModuleContext} from '../ModuleContext.js';
 
 type DownloadNotification = Parameters<AppUpdater['checkForUpdatesAndNotify']>[0];
+type FeedURLConfig = Parameters<AppUpdater['setFeedURL']>[0];
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const DEFAULT_GITHUB_OWNER = 'CloodDev';
+const DEFAULT_GITHUB_REPO = 'PD2MM';
 
 export class AutoUpdater implements AppModule {
 
@@ -105,11 +108,22 @@ export class AutoUpdater implements AppModule {
       updater.fullChangelog = true;
       this.registerDebugListeners(updater);
 
+      const updateFeedConfig: FeedURLConfig = {
+        provider: 'github',
+        owner: import.meta.env.VITE_UPDATE_GITHUB_OWNER || DEFAULT_GITHUB_OWNER,
+        repo: import.meta.env.VITE_UPDATE_GITHUB_REPO || DEFAULT_GITHUB_REPO,
+      };
+
+      updater.setFeedURL(updateFeedConfig);
+
       if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
         updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
       }
 
       console.debug('[auto-updater] starting update check', {
+        provider: 'github',
+        owner: updateFeedConfig.owner,
+        repo: updateFeedConfig.repo,
         channel: updater.channel,
       });
 

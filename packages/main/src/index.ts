@@ -1350,14 +1350,24 @@ ipcMain.handle("check-app-update", async () => {
     console.debug("[auto-updater][manual] check requested");
     const updaterModule = await import("electron-updater");
     const updater = updaterModule.default.autoUpdater;
+    const updateFeedConfig = {
+      provider: "github" as const,
+      owner: import.meta.env.VITE_UPDATE_GITHUB_OWNER || "CloodDev",
+      repo: import.meta.env.VITE_UPDATE_GITHUB_REPO || "PD2MM",
+    };
+
     updater.logger = console;
     updater.fullChangelog = true;
+    updater.setFeedURL(updateFeedConfig);
 
     if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
       updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
     }
 
     console.debug("[auto-updater][manual] checking for updates", {
+      provider: updateFeedConfig.provider,
+      owner: updateFeedConfig.owner,
+      repo: updateFeedConfig.repo,
       channel: updater.channel,
     });
 
