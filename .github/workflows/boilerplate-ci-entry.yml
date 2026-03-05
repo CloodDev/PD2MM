@@ -7,17 +7,7 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - .editorconfig
-      - '.idea/**'
-      - '.vscode/**'
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - .editorconfig
-      - '.idea/**'
-      - '.vscode/**'
 
 concurrency:
   group: ${{github.workflow}}-${{ github.ref }}
