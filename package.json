@@ -28,6 +28,7 @@
   "devDependencies": {
     "@npmcli/map-workspaces": "5.0.3",
     "@playwright/test": "^1.58.2",
+    "@rollup/rollup-linux-x64-gnu": "^4.59.0",
     "@types/node": "25.3.3",
     "electron": "^40.7.0",
     "electron-builder": "^26.8.1",
