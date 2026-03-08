@@ -447,7 +447,6 @@
   cursor: not-allowed;
 }
 
-/* Search input (sidebar) */
 .searchInput {
   width: 100%;
   background: var(--bg-tertiary);

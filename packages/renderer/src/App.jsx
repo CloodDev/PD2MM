@@ -16,7 +16,6 @@ function App() {
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
   const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
 
-  // Separate mods and overrides (filtered by search)
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
