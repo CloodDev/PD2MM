@@ -447,6 +447,17 @@
   cursor: not-allowed;
 }
 
+/* Search input (sidebar) */
+.searchInput {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
 /* Progress Bar */
 .progress-container {
   margin-top: var(--spacing-md);
