@@ -4,6 +4,7 @@ import TitleBar from './TitleBar'
 
 function App() {
   const [path, setPath] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [modList, setModList] = useState([]);
   const [selected, setSelected] = useState(-1);
   const [selectedModData, setSelectedModData] = useState({});
@@ -15,9 +16,8 @@ function App() {
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
   const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
 
-  // Separate mods and overrides
-  const regularMods = modList.filter(mod => mod.type === 'mod');
-  const modOverrides = modList.filter(mod => mod.type === 'override');
+  const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const getModInfo = {
     author: () => selectedModData.author || 'No author found',
@@ -27,7 +27,7 @@ function App() {
     type: () => modList[selected]?.type || 'mod',
     enabled: () => modList[selected]?.enabled !== false
   };
-  
+
   const handleDirectorySelect = async () => {
     const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
     setPath(exportPath);
@@ -40,7 +40,7 @@ function App() {
     setErrorMessage('');
     setSuccessMessage('');
     setDownloadProgress({ status: 'starting', progress: 0, error: '' });
-    
+
     const success = await window.electron.ipcRenderer.invoke('download-mod', {
       url,
       path: path
@@ -203,19 +203,19 @@ function App() {
 
   const handleRemoveMod = async () => {
     if (selected === -1) return;
-    
+
     const modName = modList[selected].name;
     const confirmed = confirm(`Are you sure you want to remove "${modName}"?`);
-    
+
     if (!confirmed) return;
-    
+
     const result = await window.electron.ipcRenderer.invoke('remove-mod', {
       name: modList[selected].name,
       type: modList[selected].type,
       enabled: modList[selected].enabled,
       basePath: path
     });
-    
+
     if (result.success) {
       setSuccessMessage(`✓ Mod "${modName}" removed successfully!`);
       setSelected(-1);
@@ -236,7 +236,7 @@ function App() {
     window.electron.ipcRenderer.invoke('load-settings').then((savedPath) => {
       if (savedPath) setPath(savedPath);
     });
-    
+
     // Listen for download progress
     const handleDownloadProgress = (data) => {
       setDownloadProgress(data);
@@ -245,25 +245,25 @@ function App() {
         setIsDownloading(false);
       }
     };
-    
+
     // Listen for deep links (e.g., mws-pdmm://install/modid)
     const handleDeepLink = async (data) => {
       console.log('★★★ RENDERER: Deep link received:', data);
       console.trace('Deep link call stack');
-      
+
       // Parse the deep link URL
       if (data.host === 'install' && data.pathname) {
         console.log('★★★ RENDERER: Processing install command');
         // Extract mod ID or URL from pathname (e.g., /modid or /https://example.com/mod.zip)
         const param = data.pathname.substring(1); // Remove leading slash
         console.log('★★★ RENDERER: Param:', param);
-        
+
         if (param) {
           // If it starts with http, use it as the URL, otherwise treat it as mod ID
           const modUrl = param.startsWith('http') ? param : `https://modworkshop.net/mod/${param}`;
           console.log('★★★ RENDERER: Mod URL:', modUrl);
           setModLink(modUrl);
-          
+
           // Check if path is set from settings
           console.log('★★★ RENDERER: Current path:', path);
           if (!path || path === 'C:/') {
@@ -272,15 +272,15 @@ function App() {
             setTimeout(() => setErrorMessage(''), 5000);
             return;
           }
-          
+
           setSuccessMessage(`🔗 Deep link received! Starting download...`);
           console.log('★★★ RENDERER: Starting download to:', path);
-          
+
           // Automatically start the download
           setIsDownloading(true);
           setErrorMessage('');
           setDownloadProgress({ status: 'starting', progress: 0, error: '' });
-          
+
           const success = await window.electron.ipcRenderer.invoke('download-mod', {
             url: modUrl,
             path: path
@@ -293,7 +293,7 @@ function App() {
             setSuccessMessage('✓ Mod installed successfully via deep link!');
             setModLink('');
             await listMods();
-            
+
             setTimeout(() => {
               setIsDownloading(false);
               setDownloadProgress({ status: '', progress: 0, error: '' });
@@ -305,12 +305,12 @@ function App() {
         console.log('★★★ RENDERER: Not an install command:', data);
       }
     };
-    
+
     window.electron.ipcRenderer.on('download-progress', handleDownloadProgress);
     window.electron.ipcRenderer.on('deep-link', handleDeepLink);
-    
+
     console.log('★★★ RENDERER: Event listeners registered');
-    
+
     // Cleanup listeners on unmount
     return () => {
       console.log('★★★ RENDERER: Cleaning up event listeners');
@@ -409,13 +409,13 @@ function App() {
             <span>Installed Mods</span>
           </div>
           <div className="sidebar-section">
-            <div className="pathSelector" onClick={handleDirectorySelect}>
+            <div className="searchContainer">
               <input
                 type="text"
-                className='pathInput'
-                placeholder="Select Payday 2 folder..."
-                readOnly
-                value={path || 'No folder selected'}
+                className='searchInput'
+                placeholder="Search mods..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             {modList.length > 0 ? (
@@ -439,7 +439,7 @@ function App() {
                     </div>
                   </>
                 )}
-                
+
                 {modOverrides.length > 0 && (
                   <>
                     <div className="sidebar-section-title">📦 Mod Overrides • {modOverrides.length}</div>
@@ -467,7 +467,7 @@ function App() {
               <div className="noMods">
                 <div className="noMods-icon">📦</div>
                 <p>No mods found</p>
-                <p style={{ fontSize: '12px' }}>Select your Payday 2 folder above</p>
+                <p style={{ fontSize: '12px' }}>Select your Payday 2 folder via "Select Game Folder" in the header</p>
               </div>
             )}
           </div>
@@ -476,6 +476,9 @@ function App() {
           <div className="content-header">
             <h3 className="section-title">Download Mod</h3>
             <div className="content-header-actions">
+              <button className="action-button" onClick={handleDirectorySelect}>
+                📁 Select Game Folder
+              </button>
               <button
                 className="action-button secondary"
                 onClick={handleCheckForAppUpdate}
@@ -499,8 +502,8 @@ function App() {
                     disabled={isDownloading}
                   />
                 </div>
-                <button 
-                  className="action-button" 
+                <button
+                  className="action-button"
                   onClick={handleModDownload}
                   disabled={isDownloading || !modLink}
                 >
@@ -510,8 +513,8 @@ function App() {
               {isDownloading && (
                 <div className="progress-container">
                   <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
+                    <div
+                      className="progress-fill"
                       style={{ width: `${downloadProgress.progress}%` }}
                     ></div>
                   </div>
