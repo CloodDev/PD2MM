@@ -15,6 +15,7 @@ import { request } from "undici";
 import { ipcMain } from "electron";
 import { spawn } from "child_process";
 import { win32 } from "node:path";
+import { json } from "node:stream/consumers";
 
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
 const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
@@ -66,12 +67,44 @@ type Pd2mmModSourceMetadata = {
   modId: string;
   sourceUrl: string;
   savedAt: string;
+  latestFileId?: number;
+  latestVersion?: string;
 };
 
 type ModWorkshopFile = {
   id?: string | number;
   version?: string;
   download_url?: string;
+};
+
+const pickLatestModWorkshopFile = (files: ModWorkshopFile[]): ModWorkshopFile | null => {
+  if (!files.length) {
+    return null;
+  }
+
+  const filesWithNumericId = files
+    .map((file) => ({ file, id: Number(file.id) }))
+    .filter((entry) => Number.isFinite(entry.id) && entry.id > 0);
+
+  if (filesWithNumericId.length > 0) {
+    filesWithNumericId.sort((firstEntry, secondEntry) => secondEntry.id - firstEntry.id);
+    return filesWithNumericId[0]?.file ?? null;
+  }
+
+  const candidates = [...files].sort((firstFile, secondFile) => {
+    const firstVersion = String(firstFile.version ?? "");
+    const secondVersion = String(secondFile.version ?? "");
+    const versionComparison = compareVersionStrings(secondVersion, firstVersion);
+    if (versionComparison !== 0) {
+      return versionComparison;
+    }
+
+    const firstId = Number(firstFile.id ?? 0);
+    const secondId = Number(secondFile.id ?? 0);
+    return secondId - firstId;
+  });
+
+  return candidates[0] ?? null;
 };
 
 const MOD_SOURCE_METADATA_FILE = ".pd2mm-source.json";
@@ -250,6 +283,11 @@ const compareVersionStrings = (currentVersion: string, latestVersion: string): n
   return 0;
 };
 
+const normalizeVersion = (version: unknown): string => {
+  const normalized = String(version ?? "").trim();
+  return normalized.length > 0 ? normalized : "Unknown";
+};
+
 const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | null> => {
   const apiURL = `https://api.modworkshop.net/mods/${modId}/files`;
   const { statusCode, body } = await request(apiURL, {
@@ -275,6 +313,28 @@ const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | n
   const nestedData = typedResponse.data as {files?: unknown} | undefined;
   if (nestedData && Array.isArray(nestedData.files)) {
     return nestedData.files as ModWorkshopFile[];
+  }
+
+  return null;
+};
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getLatestModWorkshopFileWithRetry = async (
+  modId: string,
+  attempts = 8,
+  waitMs = 400,
+): Promise<ModWorkshopFile | null> => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const files = await getModWorkshopFiles(modId);
+    const latestFile = files ? pickLatestModWorkshopFile(files) : null;
+    if (latestFile) {
+      return latestFile;
+    }
+
+    if (attempt < attempts - 1) {
+      await delay(waitMs);
+    }
   }
 
   return null;
@@ -551,7 +611,8 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
       return { success: false, error: "Mod folder not found" };
     }
 
-    let modId = loadModSourceMetadata(modPath)?.modId ?? null;
+    const installedSourceMetadata = loadModSourceMetadata(modPath);
+    let modId = installedSourceMetadata?.modId ?? null;
 
     if (!modId) {
       const modTxtPath = `${modPath}/mod.txt`;
@@ -579,16 +640,28 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
       };
     }
 
-    const files = await getModWorkshopFiles(modId);
-    if (!files || files.length === 0) {
-      return { success: false, error: "Could not fetch update info from ModWorkshop" };
+    const latestFile = await getLatestModWorkshopFileWithRetry(modId);
+    if (!latestFile) {
+      return { success: false, error: "Could not determine latest file from ModWorkshop" };
     }
 
-    const latestFile = files[0];
-    const latestVersion = String(latestFile.version ?? "Unknown");
-    const currentVersion = getInstalledModVersion(modPath);
-    const hasUpdate = latestVersion !== "Unknown" && compareVersionStrings(currentVersion, latestVersion) < 0;
+    const latestVersion = normalizeVersion(latestFile.version);
+    const currentVersion = normalizeVersion(getInstalledModVersion(modPath));
+    let hasUpdate = false;
 
+    if (latestVersion !== "Unknown" && currentVersion !== "Unknown") {
+      hasUpdate = compareVersionStrings(currentVersion, latestVersion) < 0;
+    } else {
+      const latestFileId = Number(latestFile.id ?? 0);
+      const installedFileId = Number(installedSourceMetadata?.latestFileId ?? 0);
+      if (latestFileId > 0 && installedFileId > 0) {
+        hasUpdate = latestFileId > installedFileId;
+      } else if (latestFileId > 0 && installedFileId === 0) {
+        hasUpdate = true;
+      }
+    }
+
+    console.log(`[Mod Update Check] Mod ID: ${modId}, Current Version: ${currentVersion}, Latest Version: ${latestVersion}, Has Update: ${hasUpdate}`);
     return {
       success: true,
       supported: true,
@@ -678,13 +751,6 @@ ipcMain.handle("load-options", async (event, operation) => {
   return mods;
 });
 
-interface ModAPIResponse {
-  data: {
-    files: any[];
-    download_url: string;
-  };
-}
-
 ipcMain.handle("download-mod", async (event, operation) => {
   const baseURL = operation.url;
   const basePath = operation.path;
@@ -759,7 +825,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
     
     const modID = modIDParts[1].split("/")[0].split("?")[0]; // Handle URLs with extra paths or query params
     console.log("Extracted Mod ID:", modID);
-    const sourceMetadata: Pd2mmModSourceMetadata = {
+    let sourceMetadata: Pd2mmModSourceMetadata = {
       provider: "modworkshop",
       modId: modID,
       sourceUrl: `https://modworkshop.net/mod/${modID}`,
@@ -789,11 +855,12 @@ ipcMain.handle("download-mod", async (event, operation) => {
       return false;
     }
     
-    const data = (await body.json()) as ModAPIResponse;
+    const data = await body.json() as unknown;
     console.log("API Response Data:", JSON.stringify(data, null, 2));
-    
-    if (!data.data || !data.data[0] || !data.data[0].download_url) {
-      const error = "No download URL in API response";
+
+    const latestFile = await getLatestModWorkshopFileWithRetry(modID);
+    if (!latestFile || latestFile.id === undefined || latestFile.id === null) {
+      const error = "No latest file id in API response";
       console.error("API Data Error:", error, "Response:", data);
       event.sender.send("download-progress", { 
         status: "error", 
@@ -801,24 +868,55 @@ ipcMain.handle("download-mod", async (event, operation) => {
       });
       return false;
     }
-    
-    const downloadURL = data.data[0].download_url;
+
+    const latestFileId = Number(latestFile.id);
+    sourceMetadata = {
+      ...sourceMetadata,
+      latestFileId: Number.isFinite(latestFileId) && latestFileId > 0 ? latestFileId : undefined,
+      latestVersion: normalizeVersion(latestFile.version) !== "Unknown"
+        ? normalizeVersion(latestFile.version)
+        : undefined,
+      savedAt: new Date().toISOString(),
+    };
+
+    const downloadURL = `https://api.modworkshop.net/files/${latestFile.id}/download`;
     console.log("Download URL:", downloadURL);
     
     // Detect archive type from URL
-    const archiveType = downloadURL.toLowerCase().includes('.7z') ? '7z' : 
-                       downloadURL.toLowerCase().includes('.rar') ? 'rar' : 'zip';
+    const archiveTypeSource = String(latestFile.download_url ?? downloadURL).toLowerCase();
+    const archiveType = archiveTypeSource.includes('.7z') ? '7z' : 
+                       archiveTypeSource.includes('.rar') ? 'rar' : 'zip';
     console.log("Detected archive type:", archiveType);
     
     event.sender.send("download-progress", { status: "downloading", progress: 10 });
     
     // Start download
     console.log("Starting download...");
-    const response = await request(downloadURL, {
+    let response = await request(downloadURL, {
       headers: {
         'User-Agent': 'PD2MM/1.0'
       }
     });
+
+    let redirectCount = 0;
+    let currentURL = downloadURL;
+    while ([301, 302, 303, 307, 308].includes(response.statusCode) && redirectCount < 5) {
+      const locationHeader = response.headers.location;
+      const location = Array.isArray(locationHeader) ? locationHeader[0] : locationHeader;
+      if (!location) {
+        break;
+      }
+
+      await response.body.text().catch(() => "");
+      currentURL = new URL(location, currentURL).toString();
+      console.log(`Following download redirect to: ${currentURL}`);
+      response = await request(currentURL, {
+        headers: {
+          'User-Agent': 'PD2MM/1.0'
+        }
+      });
+      redirectCount += 1;
+    }
     
     if (response.statusCode !== 200) {
       const error = `Download failed with status ${response.statusCode}`;
@@ -1314,6 +1412,39 @@ ipcMain.handle("sync-settings", async (event, operation) => {
     fs.mkdirSync(process.env.APPDATA + "/PD2MM");
   }
   fs.writeFileSync(process.env.APPDATA + "/PD2MM/settings.txt", operation);
+});
+
+ipcMain.handle("launch-game", async (event, operation) => {
+  const steamLaunchUrl = "steam://rungameid/218620";
+
+  try {
+    await shell.openExternal(steamLaunchUrl);
+    return { success: true, method: "steam" };
+  } catch (steamError) {
+    const basePath = typeof operation?.basePath === "string" ? operation.basePath : "";
+    const exePath = basePath ? win32.join(basePath, "payday2_win32_release.exe") : "";
+
+    try {
+      if (exePath && fs.existsSync(exePath)) {
+        const child = spawn(exePath, [], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+        return { success: true, method: "exe" };
+      }
+    } catch (exeError) {
+      return {
+        success: false,
+        error: exeError instanceof Error ? exeError.message : String(exeError),
+      };
+    }
+
+    return {
+      success: false,
+      error: steamError instanceof Error ? steamError.message : "Unable to launch PAYDAY 2.",
+    };
+  }
 });
 
 // Window controls for custom title bar

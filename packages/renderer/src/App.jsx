@@ -15,6 +15,7 @@ function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
   const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [isLaunchingGame, setIsLaunchingGame] = useState(false);
 
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -151,6 +152,30 @@ function App() {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to check for app updates.');
     } finally {
       setIsCheckingAppUpdate(false);
+    }
+  };
+
+  const handleLaunchGame = async () => {
+    setIsLaunchingGame(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke('launch-game', {
+        basePath: path,
+      });
+
+      if (!result?.success) {
+        setErrorMessage(result?.error || 'Failed to launch PAYDAY 2.');
+        return;
+      }
+
+      setSuccessMessage('🚀 Launching PAYDAY 2...');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to launch PAYDAY 2.');
+    } finally {
+      setIsLaunchingGame(false);
     }
   };
 
@@ -478,6 +503,13 @@ function App() {
             <div className="content-header-actions">
               <button className="action-button" onClick={handleDirectorySelect}>
                 📁 Select Game Folder
+              </button>
+              <button
+                className="action-button success"
+                onClick={handleLaunchGame}
+                disabled={isLaunchingGame}
+              >
+                {isLaunchingGame ? '⏳ Launching...' : '▶️ Launch Game'}
               </button>
               <button
                 className="action-button secondary"
