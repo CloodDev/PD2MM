@@ -56,6 +56,30 @@ export class AutoUpdater implements AppModule {
     return autoUpdater;
   }
 
+  #isNoPublishedVersionsError(error: unknown): boolean {
+    return error instanceof Error && error.message.includes('No published versions');
+  }
+
+  #configureUpdater(updater: AppUpdater) {
+    updater.logger = this.#logger || console;
+    updater.fullChangelog = true;
+    this.registerDebugListeners(updater);
+
+    const updateFeedConfig: FeedURLConfig = {
+      provider: 'github',
+      owner: import.meta.env.VITE_UPDATE_GITHUB_OWNER || DEFAULT_GITHUB_OWNER,
+      repo: import.meta.env.VITE_UPDATE_GITHUB_REPO || DEFAULT_GITHUB_REPO,
+    };
+
+    updater.setFeedURL(updateFeedConfig);
+
+    if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
+      updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
+    }
+
+    return updateFeedConfig;
+  }
+
   registerDebugListeners(updater: AppUpdater) {
     if (this.#isDebugListenersRegistered) {
       return;
@@ -104,21 +128,7 @@ export class AutoUpdater implements AppModule {
   async runAutoUpdater() {
     const updater = this.getAutoUpdater();
     try {
-      updater.logger = this.#logger || console;
-      updater.fullChangelog = true;
-      this.registerDebugListeners(updater);
-
-      const updateFeedConfig: FeedURLConfig = {
-        provider: 'github',
-        owner: import.meta.env.VITE_UPDATE_GITHUB_OWNER || DEFAULT_GITHUB_OWNER,
-        repo: import.meta.env.VITE_UPDATE_GITHUB_REPO || DEFAULT_GITHUB_REPO,
-      };
-
-      updater.setFeedURL(updateFeedConfig);
-
-      if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
-        updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
-      }
+      const updateFeedConfig = this.#configureUpdater(updater);
 
       console.debug('[auto-updater] starting update check', {
         provider: 'github',
@@ -134,16 +144,68 @@ export class AutoUpdater implements AppModule {
 
       return result;
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('No published versions')) {
-          console.debug('[auto-updater] no published versions available');
-          return null;
-        }
+      if (this.#isNoPublishedVersionsError(error)) {
+        console.debug('[auto-updater] no published versions available');
+        return null;
       }
 
       console.error('[auto-updater] update check failed', error);
 
       throw error;
+    }
+  }
+
+  async runManualUpdateCheck(currentVersion?: string) {
+    const updater = this.getAutoUpdater();
+
+    try {
+      const updateFeedConfig = this.#configureUpdater(updater);
+      const previousAutoDownload = updater.autoDownload;
+      updater.autoDownload = false;
+
+      try {
+        console.debug('[auto-updater][manual] checking for updates', {
+          provider: updateFeedConfig.provider,
+          owner: updateFeedConfig.owner,
+          repo: updateFeedConfig.repo,
+          channel: updater.channel,
+        });
+
+        const result = await updater.checkForUpdates();
+        const version = result?.updateInfo?.version ?? null;
+        const hasUpdate = Boolean(version && (!currentVersion || version !== currentVersion));
+
+        console.debug('[auto-updater][manual] check completed', {
+          hasUpdate,
+          version,
+          currentVersion: currentVersion ?? null,
+        });
+
+        return {
+          success: true,
+          hasUpdate,
+          version,
+        };
+      } finally {
+        updater.autoDownload = previousAutoDownload;
+      }
+    } catch (error) {
+      if (this.#isNoPublishedVersionsError(error)) {
+        return {
+          success: true,
+          hasUpdate: false,
+          version: null,
+        };
+      }
+
+      console.error('[auto-updater][manual] check failed', error);
+
+      return {
+        success: false,
+        hasUpdate: false,
+        version: null,
+        message: error instanceof Error ? error.message : 'Failed to check for updates.',
+      };
     }
   }
 }

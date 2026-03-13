@@ -1,4 +1,4 @@
-import { use, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import TitleBar from './TitleBar'
 
@@ -16,6 +16,8 @@ function App() {
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
   const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
   const [isLaunchingGame, setIsLaunchingGame] = useState(false);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+  const pathRef = useRef(path);
 
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -258,8 +260,15 @@ function App() {
   };
 
   useEffect(() => {
+    pathRef.current = path;
+  }, [path]);
+
+  useEffect(() => {
     window.electron.ipcRenderer.invoke('load-settings').then((savedPath) => {
-      if (savedPath) setPath(savedPath);
+      if (savedPath) {
+        setPath(savedPath);
+      }
+      setIsSettingsLoaded(true);
     });
 
     // Listen for download progress
@@ -290,8 +299,9 @@ function App() {
           setModLink(modUrl);
 
           // Check if path is set from settings
-          console.log('★★★ RENDERER: Current path:', path);
-          if (!path || path === 'C:/') {
+          const currentPath = pathRef.current;
+          console.log('★★★ RENDERER: Current path:', currentPath);
+          if (!currentPath || currentPath === 'C:/') {
             console.error('★★★ RENDERER: No game directory configured');
             setErrorMessage('⚠ Please select your Payday 2 directory first before using deep links!');
             setTimeout(() => setErrorMessage(''), 5000);
@@ -299,7 +309,7 @@ function App() {
           }
 
           setSuccessMessage(`🔗 Deep link received! Starting download...`);
-          console.log('★★★ RENDERER: Starting download to:', path);
+          console.log('★★★ RENDERER: Starting download to:', currentPath);
 
           // Automatically start the download
           setIsDownloading(true);
@@ -308,7 +318,7 @@ function App() {
 
           const success = await window.electron.ipcRenderer.invoke('download-mod', {
             url: modUrl,
-            path: path
+            path: currentPath
           });
 
           console.log('★★★ RENDERER: Download result:', success);
@@ -317,7 +327,8 @@ function App() {
           } else {
             setSuccessMessage('✓ Mod installed successfully via deep link!');
             setModLink('');
-            await listMods();
+            const mods = await window.electron.ipcRenderer.invoke('list-mods', currentPath);
+            setModList(mods);
 
             setTimeout(() => {
               setIsDownloading(false);
@@ -342,7 +353,7 @@ function App() {
       window.electron.ipcRenderer.removeListener('download-progress', handleDownloadProgress);
       window.electron.ipcRenderer.removeListener('deep-link', handleDeepLink);
     };
-  }, [path]);
+  }, []);
 
   useEffect(() => {
     if (errorMessage) {
@@ -352,11 +363,15 @@ function App() {
   }, [errorMessage]);
 
   useEffect(() => {
+    if (!isSettingsLoaded) {
+      return;
+    }
+
     if (path !== 'C:\\mods') {
       window.electron.ipcRenderer.invoke('sync-settings', path);
-      listMods();
+      window.electron.ipcRenderer.invoke('list-mods', path).then(setModList);
     }
-  }, [path]);
+  }, [path, isSettingsLoaded]);
 
   useEffect(() => {
     if (selected !== -1 && modList[selected]) {

@@ -19,6 +19,7 @@ import { json } from "node:stream/consumers";
 
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
 const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
+const appAutoUpdater = autoUpdater();
 
 const getActiveModPath = (basePath: string, type: string, name: string) =>
   type === "override"
@@ -354,7 +355,7 @@ export async function initApp(initConfig: AppInitConfig) {
     )
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
-    .init(autoUpdater())
+    .init(appAutoUpdater)
     // Install DevTools extension if needed
     // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))
     .init(
@@ -432,6 +433,9 @@ ipcMain.handle("select-directory", async (event, operation) => {
   const result = await dialog.showOpenDialog({
     properties: properties,
   });
+  if (result.filePaths[0].endsWith("mods")){
+    result.filePaths[0] = result.filePaths[0].slice(0, -5);
+  }
   if (result.canceled) {
     return null;
   } else {
@@ -1469,69 +1473,46 @@ ipcMain.handle("window-close", async (event) => {
 });
 
 ipcMain.handle("check-app-update", async () => {
-  // if (!app.isPackaged) {
-  //   return {
-  //     success: false,
-  //     skipped: true,
-  //     message: "Update checks are only available in packaged builds.",
-  //   };
-  // }
+  if (!app.isPackaged) {
+    return {
+      success: false,
+      skipped: true,
+      hasUpdate: false,
+      version: null,
+      message: "Update checks are only available in packaged builds.",
+    };
+  }
 
   try {
     console.debug("[auto-updater][manual] check requested");
-    const updaterModule = await import("electron-updater");
-    const updater = updaterModule.default.autoUpdater;
-    const updateFeedConfig = {
-      provider: "github" as const,
-      owner: import.meta.env.VITE_UPDATE_GITHUB_OWNER || "CloodDev",
-      repo: import.meta.env.VITE_UPDATE_GITHUB_REPO || "PD2MM",
-    };
+    const result = await appAutoUpdater.runManualUpdateCheck(app.getVersion());
 
-    updater.logger = console;
-    updater.fullChangelog = true;
-    updater.setFeedURL(updateFeedConfig);
-
-    if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
-      updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
-    }
-
-    console.debug("[auto-updater][manual] checking for updates", {
-      provider: updateFeedConfig.provider,
-      owner: updateFeedConfig.owner,
-      repo: updateFeedConfig.repo,
-      channel: updater.channel,
-    });
-
-    const result = await updater.checkForUpdates();
-    const hasUpdate = Boolean(result?.updateInfo?.version);
-
-    console.debug("[auto-updater][manual] check completed", {
-      hasUpdate,
-      version: result?.updateInfo?.version ?? null,
-    });
-
-    return {
-      success: true,
-      hasUpdate,
-      version: result?.updateInfo?.version ?? null,
-      message: hasUpdate
-        ? `Update available${result?.updateInfo?.version ? `: ${result.updateInfo.version}` : ""}`
-        : "No updates available.",
-    };
-  } catch (error) {
-    console.error("[auto-updater][manual] check failed", error);
-    if (error instanceof Error && error.message.includes("No published versions")) {
+    if (!result.success) {
       return {
-        success: true,
+        success: false,
+        skipped: false,
         hasUpdate: false,
         version: null,
-        message: "No updates available.",
+        message: result.message || "Failed to check for updates.",
       };
     }
 
     return {
+      success: true,
+      hasUpdate: result.hasUpdate,
+      version: result.version,
+      message: result.hasUpdate
+        ? `Update available${result.version ? `: ${result.version}` : ""}`
+        : "No updates available.",
+    };
+  } catch (error) {
+    console.error("[auto-updater][manual] check failed", error);
+
+    return {
       success: false,
       skipped: false,
+      hasUpdate: false,
+      version: null,
       message: error instanceof Error ? error.message : "Failed to check for updates.",
     };
   }
