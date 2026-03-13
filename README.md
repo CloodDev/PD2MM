@@ -1,43 +1,102 @@
-# Payday 2 Mod Manager
+# PD2MM (Payday 2 Mod Manager)
 
-A modern desktop application designed to help manage and organize mods for Payday 2. Simplify the process of installing, managing, and organizing your mods to enhance your gaming experience.
+PD2MM is a desktop application for installing and managing PAYDAY 2 mods with a fast, modern workflow. It supports common mod packaging formats, keeps your mod folders organized, and includes built-in app update checks for packaged releases.
 
-## ✨ Features
+## Features
 
-- **Easy Mod Installation**: Install Payday 2 mods with just a few clicks
-- **Mod Organization**: Keep all your mods organized in one place
-- **BeardLIB Support**: Full support for both BLT mods and custom BeardLIB assets
-- **Archive Support**: Automatically extract and install mods from ZIP, 7z, and RAR files
-- **Modern Interface**: Clean and intuitive user interface
-- **Auto-Updates**: Keeps the mod manager up-to-date automatically
+- Install mods directly from ModWorkshop URLs.
+- Support BLT/BeardLib mods and mod overrides.
+- Enable or disable mods without deleting them.
+- Remove mods and open mod folders from the app.
+- Launch PAYDAY 2 from the manager.
+- Built-in app update checks for release builds.
 
-## 📥 Download & Installation
+## Download
 
-1. Download the latest release from the [Releases](https://github.com/CloodDev/PD2MM/releases) page
-2. Run the installer for your platform (Windows/Mac/Linux)
-3. Launch PD2MM and point it to your Payday 2 installation directory
-4. Start managing your mods!
+Download the latest release from:
 
-## 🎮 How to Use
+- [GitHub Releases](https://github.com/CloodDev/PD2MM/releases)
 
-1. **Add Mods**: Drag and drop mod archives or use the file browser to select mods
-2. **Enable/Disable**: Toggle mods on or off without deleting them
-3. **Organize**: Create categories and groups to keep your mods organized
+## Getting Started
 
-## 🛠️ Development Builds
+1. Install and open PD2MM.
+2. Click **Select Game Folder** and choose your PAYDAY 2 installation directory.
+3. Paste a ModWorkshop URL and click **Download**.
+4. Select installed mods in the sidebar to view details, enable/disable, update, or remove.
 
-- Build Windows installer bundles:
+## Mod Management
+
+- **Install**: Download from ModWorkshop links.
+- **Update (mods)**: Use **Check for Updates** on a selected mod.
+- **Enable/Disable**: Toggle mod state while preserving files.
+- **Uninstall**: Remove a selected mod from disk.
+- **Open Folder**: Open the selected mod path in the system file explorer.
+
+## App Updates
+
+PD2MM uses `electron-updater` for release updates.
+
+- Automatic checks run only in packaged builds.
+- A manual check is available in the UI via **Check App Update**.
+- Manual checks report availability and do not auto-download.
+
+### Update Configuration
+
+Optional environment variables used by the main-process updater:
+
+- `VITE_UPDATE_GITHUB_OWNER` (default: `CloodDev`)
+- `VITE_UPDATE_GITHUB_REPO` (default: `PD2MM`)
+- `VITE_DISTRIBUTION_CHANNEL` (optional release channel)
+
+If unset, PD2MM defaults to this repository’s public releases.
+
+<sub> might be broken currently as i dont get electron updater </sub>
+## Development
+
+### Prerequisites
+
+- Node.js `>= 23`
+- npm
+
+### Commands
+
+- Start development mode:
+	- `npm run start`
+- Build workspace packages:
+	- `npm run build`
+- Type-check all workspaces:
+	- `npm run typecheck`
+- Build Windows installer:
 	- `npm run compile`
-- Publish a GitHub release with artifacts:
+- Run end-to-end tests:
+	- `npm test`
+
+### Publishing
+
+- Authenticate GitHub CLI:
 	- `gh auth login`
+- Publish release artifacts:
 	- `npm run publish`
 
-## 📄 License
+## Troubleshooting
 
-MIT License - Free and open source
+- **App update check says it is skipped**
+	- Update checks only run in packaged builds, not development mode.
+- **Archive extraction fails**
+	- Install 7-Zip or WinRAR for improved extraction compatibility.
+- **No mods appear after selecting folder**
+	- Ensure the selected directory is the PAYDAY 2 root folder.
 
-## 👤 Contact
+## Contributing
 
-**cloodowy**
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
+
+## Contact
+
+- Author: cloodowy
 - Email: cloodowy@gmail.com
-- GitHub: [https://github.com/CloodDev/PD2MM](https://github.com/CloodDev/PD2MM)
+- GitHub: [CloodDev](https://github.com/CloodDev)
