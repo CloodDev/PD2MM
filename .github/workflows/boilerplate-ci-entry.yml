@@ -31,7 +31,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       renderer-template: ${{ matrix.renderer-template }}
-      distribution-channel: ${{ matrix.renderer-template }}
+      distribution-channel: latest
     strategy:
       fail-fast: false
       matrix:

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import TitleBar from './TitleBar'
 
+const MOD_REFRESH_INTERVAL_MS = 10000;
+
 function App() {
   const [path, setPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -371,6 +373,18 @@ function App() {
       window.electron.ipcRenderer.invoke('sync-settings', path);
       window.electron.ipcRenderer.invoke('list-mods', path).then(setModList);
     }
+  }, [path, isSettingsLoaded]);
+
+  useEffect(() => {
+    if (!isSettingsLoaded || !path || path === 'C:\\mods') {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      window.electron.ipcRenderer.invoke('list-mods', path).then(setModList);
+    }, MOD_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(timer);
   }, [path, isSettingsLoaded]);
 
   useEffect(() => {

@@ -7,6 +7,7 @@ type FeedURLConfig = Parameters<AppUpdater['setFeedURL']>[0];
 const DEFAULT_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_GITHUB_OWNER = 'CloodDev';
 const DEFAULT_GITHUB_REPO = 'PD2MM';
+const SUPPORTED_UPDATE_CHANNELS = new Set(['latest', 'alpha', 'beta']);
 
 export class AutoUpdater implements AppModule {
 
@@ -73,8 +74,15 @@ export class AutoUpdater implements AppModule {
 
     updater.setFeedURL(updateFeedConfig);
 
-    if (import.meta.env.VITE_DISTRIBUTION_CHANNEL) {
-      updater.channel = import.meta.env.VITE_DISTRIBUTION_CHANNEL;
+    const distributionChannel = import.meta.env.VITE_DISTRIBUTION_CHANNEL?.trim().toLowerCase();
+    if (distributionChannel) {
+      if (SUPPORTED_UPDATE_CHANNELS.has(distributionChannel)) {
+        updater.channel = distributionChannel;
+      } else {
+        console.warn('[auto-updater] ignoring unsupported distribution channel, using default channel', {
+          distributionChannel,
+        });
+      }
     }
 
     return updateFeedConfig;
