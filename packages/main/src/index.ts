@@ -1473,15 +1473,15 @@ ipcMain.handle("window-close", async (event) => {
 });
 
 ipcMain.handle("check-app-update", async () => {
-  if (!app.isPackaged) {
-    return {
-      success: false,
-      skipped: true,
-      hasUpdate: false,
-      version: null,
-      message: "Update checks are only available in packaged builds.",
-    };
-  }
+  // if (!app.isPackaged) {
+  //   return {
+  //     success: false,
+  //     skipped: true,
+  //     hasUpdate: false,
+  //     version: null,
+  //     message: "Update checks are only available in packaged builds.",
+  //   };
+  // }
 
   try {
     console.debug("[auto-updater][manual] check requested");

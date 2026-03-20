@@ -1,11 +1,8 @@
 import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import pkg from '../package.json' with {type: 'json'};
 
 const repo = 'CloodDev/PD2MM';
-const version = pkg.version;
-const tag = `v${version}`;
 const distDir = path.resolve('dist');
 
 function runCommand(command, args, options = {}) {
@@ -59,6 +56,23 @@ function getGhToken() {
   }
 }
 
+function bumpVersion() {
+  try {
+    const bumpedVersion = execFileSync('npm', ['version', 'patch', '--no-git-tag-version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+      shell: process.platform === 'win32',
+    }).trim();
+
+    return bumpedVersion.startsWith('v') ? bumpedVersion.slice(1) : bumpedVersion;
+  } catch {
+    console.error('Failed to bump package version.');
+    process.exit(1);
+  }
+}
+
+const version = bumpVersion();
+const tag = `v${version}`;
 const ghToken = getGhToken();
 
 function getAuthenticatedGhEnv() {

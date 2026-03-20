@@ -170,7 +170,7 @@ export class AutoUpdater implements AppModule {
       const updateFeedConfig = this.#configureUpdater(updater);
       const previousAutoDownload = updater.autoDownload;
       updater.autoDownload = false;
-
+      console.log(updater)
       try {
         console.debug('[auto-updater][manual] checking for updates', {
           provider: updateFeedConfig.provider,
@@ -180,6 +180,7 @@ export class AutoUpdater implements AppModule {
         });
 
         const result = await updater.checkForUpdates();
+        console.log(result)
         const version = result?.updateInfo?.version ?? null;
         const hasUpdate = Boolean(version && (!currentVersion || version !== currentVersion));
 

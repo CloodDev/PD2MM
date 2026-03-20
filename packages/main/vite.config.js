@@ -59,6 +59,7 @@ function handleHotReload() {
       rendererWatchServer = rendererWatchServerProvider.api.provideRendererWatchServer();
 
       process.env.VITE_DEV_SERVER_URL = rendererWatchServer.resolvedUrls.local[0];
+      process.env.VITE_DISTRIBUTION_CHANNEL = "latest";
 
       return {
         build: {
