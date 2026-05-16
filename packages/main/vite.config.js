@@ -1,6 +1,5 @@
 import {getNodeMajorVersion} from '@vite-electron-builder/electron-versions';
 import {spawn} from 'child_process';
-import electronPath from 'electron';
 
 export default /**
  * @type {import('vite').UserConfig}
@@ -72,6 +71,8 @@ function handleHotReload() {
       if (process.env.NODE_ENV !== 'development') {
         return;
       }
+
+      const electronPath = process.env.ELECTRON_PATH ?? 'electron';
 
       /** Kill electron if a process already exists */
       if (electronApp !== null) {
