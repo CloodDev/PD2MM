@@ -25,4 +25,4 @@ function run(command, args) {
 }
 
 run('npm', ['run', 'build']);
-run('electron-builder', ['build', target, '--config', 'electron-builder.mjs']);
+run('electron-builder', ['build', target, '--publish', 'never', '--config', 'electron-builder.mjs']);
