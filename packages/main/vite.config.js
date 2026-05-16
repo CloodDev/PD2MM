@@ -1,4 +1,3 @@
-import {getNodeMajorVersion} from '@vite-electron-builder/electron-versions';
 import {spawn} from 'child_process';
 
 export default /**
@@ -11,7 +10,7 @@ export default /**
     sourcemap: 'inline',
     outDir: 'dist',
     assetsDir: '.',
-    target: `node${getNodeMajorVersion()}`,
+    target: 'node22',
     lib: {
       entry: 'src/index.ts',
       formats: ['es'],
