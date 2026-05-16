@@ -19,7 +19,8 @@ export default /** @type import('electron-builder').Configuration */
     releaseType: 'release',
   },
   linux: {
-    target: ['deb'],
+    target: ['AppImage'],
+    category: 'Utility',
   },
   win: {
     target: [{

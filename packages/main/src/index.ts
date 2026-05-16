@@ -9,17 +9,20 @@ import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { createDeepLinkHandler } from "./modules/DeepLinkHandler.js";
 import { dialog, BrowserWindow, app } from "electron";
+import AdmZip from "adm-zip";
 import * as fs from "node:fs";
+import path from "node:path";
 import { shell } from "electron";
 import { request } from "undici";
 import { ipcMain } from "electron";
 import { spawn } from "child_process";
-import { win32 } from "node:path";
 import { json } from "node:stream/consumers";
 
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
 const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
 const appAutoUpdater = autoUpdater();
+const settingsDirectory = () => path.join(app.getPath("userData"), "PD2MM");
+const settingsFilePath = () => path.join(settingsDirectory(), "settings.txt");
 
 const getActiveModPath = (basePath: string, type: string, name: string) =>
   type === "override"
@@ -38,6 +41,68 @@ const ensureDirectory = (dirPath: string) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
+};
+
+const extractZipWithAdmZip = (archivePath: string, destinationPath: string) => {
+  const zip = new AdmZip(archivePath);
+  zip.extractAllTo(destinationPath, true);
+};
+
+const runArchiveCommand = (command: string, args: string[]) =>
+  new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args);
+    let stderr = "";
+
+    child.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`${command} extraction failed (code ${code}): ${stderr}`));
+      } else {
+        resolve();
+      }
+    });
+
+    child.on("error", (err) => {
+      reject(err);
+    });
+  });
+
+const extractArchiveOnLinux = async (archiveType: string, archivePath: string, destinationPath: string) => {
+  if (archiveType === "zip") {
+    extractZipWithAdmZip(archivePath, destinationPath);
+    return;
+  }
+
+  const cliAttempts: Array<[string, string[]]> = archiveType === "rar"
+    ? [
+        ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+        ["7za", ["x", "-y", `-o${destinationPath}`, archivePath]],
+        ["unar", ["-o", destinationPath, archivePath]],
+        ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+        ["unrar", ["x", "-o+", archivePath, destinationPath]],
+      ]
+    : [
+        ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+        ["7za", ["x", "-y", `-o${destinationPath}`, archivePath]],
+        ["7zr", ["x", "-y", `-o${destinationPath}`, archivePath]],
+        ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+      ];
+
+  let lastError: Error | null = null;
+
+  for (const [command, args] of cliAttempts) {
+    try {
+      await runArchiveCommand(command, args);
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError || new Error("No Linux archive extractor was able to handle the archive");
 };
 
 const moveDirectoryReplacingIfExists = (sourcePath: string, destinationPath: string) => {
@@ -1040,9 +1105,21 @@ ipcMain.handle("download-mod", async (event, operation) => {
     const preferWinRAR = archiveType === 'rar';
     
     console.log(`Extraction strategy: ${preferSevenZip ? '7-Zip preferred' : preferWinRAR ? 'WinRAR preferred' : 'PowerShell preferred'}`);
+
+    if (process.platform === "linux") {
+      try {
+        console.log("Attempting extraction with Linux-compatible tools...");
+        await extractArchiveOnLinux(archiveType, zipPath, tempExtractPath);
+        console.log("✓ Extraction complete on Linux");
+        extractionSuccess = true;
+      } catch (err) {
+        console.warn("Linux extraction failed:", err instanceof Error ? err.message : err);
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
     
     // Method 1: Try PowerShell Expand-Archive (for .zip files, try first)
-    if (!preferSevenZip && !preferWinRAR) {
+    if (!extractionSuccess && process.platform === "win32" && !preferSevenZip && !preferWinRAR) {
       try {
         console.log("Attempting extraction with PowerShell...");
         await new Promise((resolve, reject) => {
@@ -1082,7 +1159,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
     }
     
     // Method 2: Try 7-Zip (preferred for .7z, fallback for others)
-    if (!extractionSuccess) {
+    if (!extractionSuccess && process.platform === "win32") {
       const sevenZipPath = find7Zip();
       if (sevenZipPath) {
         try {
@@ -1125,7 +1202,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
     }
     
     // Method 3: Try WinRAR (preferred for .rar, fallback for others)
-    if (!extractionSuccess) {
+    if (!extractionSuccess && process.platform === "win32") {
       const winrarPath = findWinRAR();
       if (winrarPath) {
         try {
@@ -1169,7 +1246,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
     }
     
     // Try PowerShell as last resort if it wasn't tried first
-    if (!extractionSuccess && (preferSevenZip || preferWinRAR)) {
+    if (!extractionSuccess && process.platform === "win32" && (preferSevenZip || preferWinRAR)) {
       try {
         console.log("Attempting extraction with PowerShell as fallback...");
         await new Promise((resolve, reject) => {
@@ -1403,7 +1480,7 @@ ipcMain.handle("download-mod", async (event, operation) => {
 
 ipcMain.handle("load-settings", async (event, operation) => {
   try {
-    let settings = fs.readFileSync(process.env.APPDATA+"/PD2MM/settings.txt", "utf8");
+    let settings = fs.readFileSync(settingsFilePath(), "utf8");
     return settings;
   } catch (err) {
 
@@ -1412,10 +1489,10 @@ ipcMain.handle("load-settings", async (event, operation) => {
 });
 
 ipcMain.handle("sync-settings", async (event, operation) => {
-  if (!fs.existsSync(process.env.APPDATA + "/PD2MM")) {
-    fs.mkdirSync(process.env.APPDATA + "/PD2MM");
+  if (!fs.existsSync(settingsDirectory())) {
+    fs.mkdirSync(settingsDirectory(), { recursive: true });
   }
-  fs.writeFileSync(process.env.APPDATA + "/PD2MM/settings.txt", operation);
+  fs.writeFileSync(settingsFilePath(), operation);
 });
 
 ipcMain.handle("launch-game", async (event, operation) => {
@@ -1426,10 +1503,17 @@ ipcMain.handle("launch-game", async (event, operation) => {
     return { success: true, method: "steam" };
   } catch (steamError) {
     const basePath = typeof operation?.basePath === "string" ? operation.basePath : "";
-    const exePath = basePath ? win32.join(basePath, "payday2_win32_release.exe") : "";
+    const exeCandidates = process.platform === "win32"
+      ? [path.join(basePath, "payday2_win32_release.exe")]
+      : [
+          path.join(basePath, "payday2_release"),
+          path.join(basePath, "payday2.x86_64"),
+          path.join(basePath, "payday2_linux"),
+        ];
 
     try {
-      if (exePath && fs.existsSync(exePath)) {
+      const exePath = exeCandidates.find(candidate => candidate && fs.existsSync(candidate));
+      if (exePath) {
         const child = spawn(exePath, [], {
           detached: true,
           stdio: "ignore",

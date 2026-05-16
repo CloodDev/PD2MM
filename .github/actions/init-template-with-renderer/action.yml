@@ -1,4 +1,5 @@
 name: Setup boilerplate
+description: Prepare the repository workspace for local build and test workflows.
 inputs:
   renderer-template:
     description: Define what vite template should be used to create renderer in case if renderer package doesn't exist

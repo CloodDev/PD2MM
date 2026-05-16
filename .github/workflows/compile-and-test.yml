@@ -47,6 +47,8 @@ jobs:
       matrix:
         os:
           - windows-latest
+          - ubuntu-latest
+          - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +63,7 @@ jobs:
 
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: "dist/root*, dist/latest*.yml"
+          subject-path: "dist/PD2MM*, dist/latest*.yml"
 
       - name: Upload compiled app
         uses: actions/upload-artifact@v4

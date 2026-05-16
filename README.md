@@ -66,8 +66,10 @@ If unset, PD2MM defaults to this repository’s public releases.
 	- `npm run build`
 - Type-check all workspaces:
 	- `npm run typecheck`
-- Build Windows installer:
+- Build an installer for the current platform:
 	- `npm run compile`
+- Build a Linux package explicitly:
+	- `npm run compile:linux`
 - Run end-to-end tests:
 	- `npm test`
 
@@ -83,7 +85,8 @@ If unset, PD2MM defaults to this repository’s public releases.
 - **App update check says it is skipped**
 	- Update checks only run in packaged builds, not development mode.
 - **Archive extraction fails**
-	- Install 7-Zip or WinRAR for improved extraction compatibility.
+	- On Linux, install `7z`, `unar`, or `bsdtar`.
+	- On Windows, install 7-Zip or WinRAR for improved extraction compatibility.
 - **No mods appear after selecting folder**
 	- Ensure the selected directory is the PAYDAY 2 root folder.
 

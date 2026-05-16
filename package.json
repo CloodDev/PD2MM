@@ -1,7 +1,7 @@
 {
   "name": "pd2mm",
   "description": "Payday 2 Mod Manager built with Electron, Vite, and TypeScript.",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "private": false,
   "type": "module",
   "author": {
@@ -17,9 +17,10 @@
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "compile": "npm run build && electron-builder build --win --config electron-builder.mjs",
+    "compile": "node scripts/compile.mjs",
+    "compile:win": "npm run build && electron-builder build --win --config electron-builder.mjs",
+    "compile:linux": "npm run build && electron-builder build --linux --config electron-builder.mjs",
     "publish": "node scripts/publish.mjs",
-    "compile:win": "npm run compile",
     "test": "npx playwright test ./tests/e2e.spec.ts",
     "start": "node packages/dev-mode.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
