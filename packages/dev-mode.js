@@ -64,5 +64,3 @@ for (const pkg of packagesToStart) {
     ],
   });
 }
-
-console.log('Starting renderer dev server...');

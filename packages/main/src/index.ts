@@ -17,6 +17,7 @@ import { request } from "undici";
 import { ipcMain } from "electron";
 import { spawn } from "child_process";
 import { json } from "node:stream/consumers";
+import { registerDownloadHandler } from "./modInstaller.js";
 
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
 const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
@@ -27,12 +28,16 @@ const settingsFilePath = () => path.join(settingsDirectory(), "settings.txt");
 const getActiveModPath = (basePath: string, type: string, name: string) =>
   type === "override"
     ? `${basePath}/assets/mod_overrides/${name}`
-    : `${basePath}/mods/${name}`;
+    : type === "map"
+      ? `${basePath}/Maps/${name}`
+      : `${basePath}/mods/${name}`;
 
 const getDisabledModsContainerPath = (basePath: string, type: string) =>
   type === "override"
     ? `${basePath}/assets/mod_overrides/${DISABLED_MODS_DIR}`
-    : `${basePath}/mods/${DISABLED_MODS_DIR}`;
+    : type === "map"
+      ? `${basePath}/Maps/${DISABLED_MODS_DIR}`
+      : `${basePath}/mods/${DISABLED_MODS_DIR}`;
 
 const getDisabledModPath = (basePath: string, type: string, name: string) =>
   `${getDisabledModsContainerPath(basePath, type)}/${name}`;
@@ -71,38 +76,77 @@ const runArchiveCommand = (command: string, args: string[]) =>
   });
 
 const extractArchiveOnLinux = async (archiveType: string, archivePath: string, destinationPath: string) => {
-  if (archiveType === "zip") {
-    extractZipWithAdmZip(archivePath, destinationPath);
-    return;
-  }
+  // Prefer explicit handling by file extension when possible
+  const lower = archivePath.toLowerCase();
 
-  const cliAttempts: Array<[string, string[]]> = archiveType === "rar"
-    ? [
-        ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
-        ["7za", ["x", "-y", `-o${destinationPath}`, archivePath]],
-        ["unar", ["-o", destinationPath, archivePath]],
-        ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
-        ["unrar", ["x", "-o+", archivePath, destinationPath]],
-      ]
-    : [
-        ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
-        ["7za", ["x", "-y", `-o${destinationPath}`, archivePath]],
-        ["7zr", ["x", "-y", `-o${destinationPath}`, archivePath]],
-        ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
-      ];
+  const attemptsFor = (pairs: Array<[string, string[]]>) => {
+    return async (): Promise<void> => {
+      let lastErr: Error | null = null;
+      for (const [cmd, args] of pairs) {
+        try {
+          await runArchiveCommand(cmd, args);
+          return;
+        } catch (e) {
+          lastErr = e instanceof Error ? e : new Error(String(e));
+        }
+      }
+      throw lastErr || new Error("No extractor succeeded");
+    };
+  };
 
-  let lastError: Error | null = null;
+  // Common extractors per extension
+  const zipCommands: Array<[string, string[]]> = [
+    ["unzip", ["-o", archivePath, "-d", destinationPath]],
+    ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+    ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+    ["unar", ["-o", destinationPath, archivePath]],
+  ];
 
-  for (const [command, args] of cliAttempts) {
-    try {
-      await runArchiveCommand(command, args);
-      return;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
+  const sevenCommands: Array<[string, string[]]> = [
+    ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+    ["7za", ["x", "-y", `-o${destinationPath}`, archivePath]],
+    ["7zr", ["x", "-y", `-o${destinationPath}`, archivePath]],
+    ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+  ];
+
+  const rarCommands: Array<[string, string[]]> = [
+    ["unrar", ["x", "-o+", archivePath, destinationPath]],
+    ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+    ["unar", ["-o", destinationPath, archivePath]],
+    ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+  ];
+
+  try {
+    if (lower.endsWith(".zip")) {
+      try {
+        await attemptsFor(zipCommands)();
+        return;
+      } catch {
+        // fallback to adm-zip
+        extractZipWithAdmZip(archivePath, destinationPath);
+        return;
+      }
     }
-  }
 
-  throw lastError || new Error("No Linux archive extractor was able to handle the archive");
+    if (lower.endsWith(".7z")) {
+      await attemptsFor(sevenCommands)();
+      return;
+    }
+
+    if (lower.endsWith(".rar")) {
+      await attemptsFor(rarCommands)();
+      return;
+    }
+
+    // Unknown extension: try a broad set of extractors (7z, unar, bsdtar)
+    await attemptsFor([
+      ["7z", ["x", "-y", `-o${destinationPath}`, archivePath]],
+      ["unar", ["-o", destinationPath, archivePath]],
+      ["bsdtar", ["-xf", archivePath, "-C", destinationPath]],
+    ])();
+  } catch (err) {
+    throw err instanceof Error ? err : new Error(String(err));
+  }
 };
 
 const moveDirectoryReplacingIfExists = (sourcePath: string, destinationPath: string) => {
@@ -471,7 +515,7 @@ export async function initApp(initConfig: AppInitConfig) {
           "C:\\Program Files (x86)\\7-Zip\\7z.exe"
         ];
         const sevenZipFound = sevenZipPaths.some(path => fs.existsSync(path));
-        console.log("7-Zip:", sevenZipFound ? "✓ Available" : "✗ Not found");
+        console.log("7-Zip:", sevenZipFound ? "Available" : "Not found");
         
         // Check WinRAR
         const winrarPaths = [
@@ -479,7 +523,7 @@ export async function initApp(initConfig: AppInitConfig) {
           "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe"
         ];
         const winrarFound = winrarPaths.some(path => fs.existsSync(path));
-        console.log("WinRAR:", winrarFound ? "✓ Available" : "✗ Not found");
+        console.log("WinRAR:", winrarFound ? "Available" : "Not found");
         
         if (!sevenZipFound && !winrarFound) {
           console.log("\n⚠ Tip: Install 7-Zip or WinRAR for better archive extraction support");
@@ -545,6 +589,24 @@ ipcMain.handle("list-mods", async (event, operation) => {
       });
     }
 
+    // Check maps folder
+    const mapsPath = operation + "/Maps";
+    if (fs.existsSync(mapsPath)) {
+      const maps = fs.readdirSync(mapsPath);
+      maps.forEach((map) => {
+        if (map === DISABLED_MODS_DIR) {
+          return;
+        }
+
+        const mapPath = `${mapsPath}/${map}`;
+        if (!fs.statSync(mapPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(map, "map", true);
+      });
+    }
+
     // Check disabled regular mods
     const disabledModsPath = getDisabledModsContainerPath(operation, "mod");
     if (fs.existsSync(disabledModsPath)) {
@@ -556,6 +618,20 @@ ipcMain.handle("list-mods", async (event, operation) => {
         }
 
         addModEntry(mod, "mod", false);
+      });
+    }
+
+    // Check disabled maps
+    const disabledMapsPath = getDisabledModsContainerPath(operation, "map");
+    if (fs.existsSync(disabledMapsPath)) {
+      const disabledMaps = fs.readdirSync(disabledMapsPath);
+      disabledMaps.forEach((map) => {
+        const mapPath = `${disabledMapsPath}/${map}`;
+        if (!fs.statSync(mapPath).isDirectory()) {
+          return;
+        }
+
+        addModEntry(map, "map", false);
       });
     }
     
@@ -636,7 +712,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       };
     }
     
-    // Try main.xml for BeardLib mods
+    // Try main.xml for BeardLib or map mods
     let mainXmlPath = modPath + "/main.xml";
     if (fs.existsSync(mainXmlPath)) {
       let xmlText = fs.readFileSync(mainXmlPath, "utf8");
@@ -820,662 +896,12 @@ ipcMain.handle("load-options", async (event, operation) => {
   return mods;
 });
 
-ipcMain.handle("download-mod", async (event, operation) => {
-  const baseURL = operation.url;
-  const basePath = operation.path;
-  
-  console.log("=== Download Started ===");
-  console.log("URL:", baseURL);
-  console.log("Base Path:", basePath);
-  
-  // Cleanup function for error cases
-  const cleanup = (zipPath?: string, extractPath?: string) => {
-    try {
-      if (zipPath && fs.existsSync(zipPath)) {
-        fs.unlinkSync(zipPath);
-        console.log("Cleaned up zip file");
-      }
-      if (extractPath && fs.existsSync(extractPath)) {
-        fs.rmSync(extractPath, { recursive: true, force: true });
-        console.log("Cleaned up extract directory");
-      }
-    } catch (cleanupErr) {
-      console.error("Cleanup error:", cleanupErr);
-    }
-  };
-  
-  try {
-    // Validate inputs
-    if (!baseURL || !basePath) {
-      const error = "Missing URL or path";
-      console.error("Validation Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Missing download URL or installation path" 
-      });
-      return false;
-    }
-    
-    // Validate base path exists
-    if (!fs.existsSync(basePath)) {
-      const error = `Installation path does not exist: ${basePath}`;
-      console.error("Path Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Payday 2 installation path not found. Please select a valid directory." 
-      });
-      return false;
-    }
-    
-    // Validate URL format
-    if (!baseURL.includes("modworkshop.net/mod/")) {
-      const error = "Invalid URL format";
-      console.error("URL Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Invalid ModWorkshop URL. Please use a URL from modworkshop.net" 
-      });
-      return false;
-    }
-    
-    event.sender.send("download-progress", { status: "fetching", progress: 0 });
-    
-    // Extract mod ID
-    const modIDParts = baseURL.split("https://modworkshop.net/mod/");
-    if (modIDParts.length < 2 || !modIDParts[1]) {
-      const error = "Could not extract mod ID from URL";
-      console.error("Parse Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Could not parse mod ID from URL" 
-      });
-      return false;
-    }
-    
-    const modID = modIDParts[1].split("/")[0].split("?")[0]; // Handle URLs with extra paths or query params
-    console.log("Extracted Mod ID:", modID);
-    let sourceMetadata: Pd2mmModSourceMetadata = {
-      provider: "modworkshop",
-      modId: modID,
-      sourceUrl: `https://modworkshop.net/mod/${modID}`,
-      savedAt: new Date().toISOString(),
-    };
-    
-    // Fetch mod data from API
-    console.log("Fetching mod data from API...");
-    const apiURL = `https://api.modworkshop.net/mods/${modID}/files`;
-    console.log("API URL:", apiURL);
-    
-    const { statusCode, body } = await request(apiURL, {
-      headers: {
-        'User-Agent': 'PD2MM/1.0'
-      }
-    });
-    
-    console.log("API Response Status:", statusCode);
-    
-    if (statusCode !== 200) {
-      const error = `API returned status ${statusCode}`;
-      console.error("API Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: `Failed to fetch mod data (HTTP ${statusCode}). The mod may not exist or the API is down.` 
-      });
-      return false;
-    }
-    
-    const data = await body.json() as unknown;
-    console.log("API Response Data:", JSON.stringify(data, null, 2));
-
-    const latestFile = await getLatestModWorkshopFileWithRetry(modID);
-    if (!latestFile || latestFile.id === undefined || latestFile.id === null) {
-      const error = "No latest file id in API response";
-      console.error("API Data Error:", error, "Response:", data);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Mod data is invalid or has no download files available" 
-      });
-      return false;
-    }
-
-    const latestFileId = Number(latestFile.id);
-    sourceMetadata = {
-      ...sourceMetadata,
-      latestFileId: Number.isFinite(latestFileId) && latestFileId > 0 ? latestFileId : undefined,
-      latestVersion: normalizeVersion(latestFile.version) !== "Unknown"
-        ? normalizeVersion(latestFile.version)
-        : undefined,
-      savedAt: new Date().toISOString(),
-    };
-
-    const downloadURL = `https://api.modworkshop.net/files/${latestFile.id}/download`;
-    console.log("Download URL:", downloadURL);
-    
-    // Detect archive type from URL
-    const archiveTypeSource = String(latestFile.download_url ?? downloadURL).toLowerCase();
-    const archiveType = archiveTypeSource.includes('.7z') ? '7z' : 
-                       archiveTypeSource.includes('.rar') ? 'rar' : 'zip';
-    console.log("Detected archive type:", archiveType);
-    
-    event.sender.send("download-progress", { status: "downloading", progress: 10 });
-    
-    // Start download
-    console.log("Starting download...");
-    let response = await request(downloadURL, {
-      headers: {
-        'User-Agent': 'PD2MM/1.0'
-      }
-    });
-
-    let redirectCount = 0;
-    let currentURL = downloadURL;
-    while ([301, 302, 303, 307, 308].includes(response.statusCode) && redirectCount < 5) {
-      const locationHeader = response.headers.location;
-      const location = Array.isArray(locationHeader) ? locationHeader[0] : locationHeader;
-      if (!location) {
-        break;
-      }
-
-      await response.body.text().catch(() => "");
-      currentURL = new URL(location, currentURL).toString();
-      console.log(`Following download redirect to: ${currentURL}`);
-      response = await request(currentURL, {
-        headers: {
-          'User-Agent': 'PD2MM/1.0'
-        }
-      });
-      redirectCount += 1;
-    }
-    
-    if (response.statusCode !== 200) {
-      const error = `Download failed with status ${response.statusCode}`;
-      console.error("Download Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: `Download failed (HTTP ${response.statusCode}). The file may no longer be available.` 
-      });
-      return false;
-    }
-    
-    const contentLength = parseInt(response.headers['content-length'] as string || '0');
-    console.log("Content Length:", contentLength, "bytes");
-    
-    const zipPath = basePath + "/temp_download.zip";
-    console.log("Saving to:", zipPath);
-    
-    const fileStream = fs.createWriteStream(zipPath);
-    let downloadedBytes = 0;
-    
-    response.body.on('data', (chunk: Buffer) => {
-      downloadedBytes += chunk.length;
-      const progress = contentLength > 0 ? Math.floor((downloadedBytes / contentLength) * 60) + 10 : 30;
-      event.sender.send("download-progress", { status: "downloading", progress });
-    });
-    
-    await new Promise((resolve, reject) => {
-      response.body.pipe(fileStream);
-      fileStream.on("finish", () => {
-        console.log("Download complete:", downloadedBytes, "bytes");
-        resolve(undefined);
-      });
-      fileStream.on("error", (err) => {
-        console.error("File stream error:", err);
-        reject(err);
-      });
-    });
-    
-    // Verify file was downloaded
-    if (!fs.existsSync(zipPath)) {
-      const error = "Downloaded file not found after download";
-      console.error("File Error:", error);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Download completed but file is missing" 
-      });
-      return false;
-    }
-    
-    const fileSize = fs.statSync(zipPath).size;
-    console.log("Downloaded file size:", fileSize, "bytes");
-    
-    if (fileSize === 0) {
-      const error = "Downloaded file is empty";
-      console.error("File Error:", error);
-      cleanup(zipPath);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Downloaded file is empty or corrupted" 
-      });
-      return false;
-    }
-    
-    event.sender.send("download-progress", { status: "extracting", progress: 70 });
-    
-    // Create temp extraction directory
-    const tempExtractPath = basePath + "/temp_extract";
-    console.log("Extracting to:", tempExtractPath);
-    
-    if (!fs.existsSync(tempExtractPath)) {
-      fs.mkdirSync(tempExtractPath, { recursive: true });
-      console.log("Created extraction directory");
-    }
-    
-    // Helper function to find extraction tools
-    const find7Zip = (): string | null => {
-      const possiblePaths = [
-        "C:\\Program Files\\7-Zip\\7z.exe",
-        "C:\\Program Files (x86)\\7-Zip\\7z.exe",
-        process.env.ProgramFiles + "\\7-Zip\\7z.exe",
-        process.env["ProgramFiles(x86)"] + "\\7-Zip\\7z.exe"
-      ];
-      
-      for (const path of possiblePaths) {
-        if (path && fs.existsSync(path)) {
-          console.log("Found 7-Zip at:", path);
-          return path;
-        }
-      }
-      return null;
-    };
-    
-    const findWinRAR = (): string | null => {
-      const possiblePaths = [
-        "C:\\Program Files\\WinRAR\\WinRAR.exe",
-        "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe",
-        process.env.ProgramFiles + "\\WinRAR\\WinRAR.exe",
-        process.env["ProgramFiles(x86)"] + "\\WinRAR\\WinRAR.exe"
-      ];
-      
-      for (const path of possiblePaths) {
-        if (path && fs.existsSync(path)) {
-          console.log("Found WinRAR at:", path);
-          return path;
-        }
-      }
-      return null;
-    };
-    
-    // Extract archive using multiple methods
-    console.log("Starting extraction...");
-    let extractionSuccess = false;
-    let lastError: Error | null = null;
-    
-    // Determine extraction order based on archive type
-    const preferSevenZip = archiveType === '7z';
-    const preferWinRAR = archiveType === 'rar';
-    
-    console.log(`Extraction strategy: ${preferSevenZip ? '7-Zip preferred' : preferWinRAR ? 'WinRAR preferred' : 'PowerShell preferred'}`);
-
-    if (process.platform === "linux") {
-      try {
-        console.log("Attempting extraction with Linux-compatible tools...");
-        await extractArchiveOnLinux(archiveType, zipPath, tempExtractPath);
-        console.log("✓ Extraction complete on Linux");
-        extractionSuccess = true;
-      } catch (err) {
-        console.warn("Linux extraction failed:", err instanceof Error ? err.message : err);
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    
-    // Method 1: Try PowerShell Expand-Archive (for .zip files, try first)
-    if (!extractionSuccess && process.platform === "win32" && !preferSevenZip && !preferWinRAR) {
-      try {
-        console.log("Attempting extraction with PowerShell...");
-        await new Promise((resolve, reject) => {
-          const unzip = spawn("powershell", [
-            "Expand-Archive",
-            "-Force",
-            "-Path",
-            `"${zipPath}"`,
-            "-DestinationPath",
-            `"${tempExtractPath}"`,
-          ]);
-          
-          let stderr = '';
-          unzip.stderr?.on('data', (data) => {
-            stderr += data.toString();
-          });
-          
-          unzip.on("close", (code) => {
-            if (code !== 0) {
-              reject(new Error(`PowerShell extraction failed (code ${code}): ${stderr}`));
-            } else {
-              resolve(undefined);
-            }
-          });
-          
-          unzip.on("error", (err) => {
-            reject(err);
-          });
-        });
-        
-        console.log("✓ Extraction complete with PowerShell");
-        extractionSuccess = true;
-      } catch (err) {
-        console.warn("PowerShell extraction failed:", err instanceof Error ? err.message : err);
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    
-    // Method 2: Try 7-Zip (preferred for .7z, fallback for others)
-    if (!extractionSuccess && process.platform === "win32") {
-      const sevenZipPath = find7Zip();
-      if (sevenZipPath) {
-        try {
-          console.log("Attempting extraction with 7-Zip...");
-          await new Promise((resolve, reject) => {
-            const unzip = spawn(sevenZipPath, [
-              "x",           // Extract with full paths
-              "-y",          // Yes to all prompts
-              `-o${tempExtractPath}`, // Output directory
-              zipPath
-            ]);
-            
-            let stderr = '';
-            unzip.stderr?.on('data', (data) => {
-              stderr += data.toString();
-            });
-            
-            unzip.on("close", (code) => {
-              if (code !== 0) {
-                reject(new Error(`7-Zip extraction failed (code ${code}): ${stderr}`));
-              } else {
-                resolve(undefined);
-              }
-            });
-            
-            unzip.on("error", (err) => {
-              reject(err);
-            });
-          });
-          
-          console.log("✓ Extraction complete with 7-Zip");
-          extractionSuccess = true;
-        } catch (err) {
-          console.warn("7-Zip extraction failed:", err instanceof Error ? err.message : err);
-          lastError = err instanceof Error ? err : new Error(String(err));
-        }
-      } else {
-        console.log("7-Zip not found on system");
-      }
-    }
-    
-    // Method 3: Try WinRAR (preferred for .rar, fallback for others)
-    if (!extractionSuccess && process.platform === "win32") {
-      const winrarPath = findWinRAR();
-      if (winrarPath) {
-        try {
-          console.log("Attempting extraction with WinRAR...");
-          await new Promise((resolve, reject) => {
-            const unzip = spawn(winrarPath, [
-              "x",           // Extract with full paths
-              "-y",          // Yes to all prompts
-              "-ibck",       // Run in background
-              zipPath,
-              tempExtractPath
-            ]);
-            
-            let stderr = '';
-            unzip.stderr?.on('data', (data) => {
-              stderr += data.toString();
-            });
-            
-            unzip.on("close", (code) => {
-              if (code !== 0) {
-                reject(new Error(`WinRAR extraction failed (code ${code}): ${stderr}`));
-              } else {
-                resolve(undefined);
-              }
-            });
-            
-            unzip.on("error", (err) => {
-              reject(err);
-            });
-          });
-          
-          console.log("✓ Extraction complete with WinRAR");
-          extractionSuccess = true;
-        } catch (err) {
-          console.warn("WinRAR extraction failed:", err instanceof Error ? err.message : err);
-          lastError = err instanceof Error ? err : new Error(String(err));
-        }
-      } else {
-        console.log("WinRAR not found on system");
-      }
-    }
-    
-    // Try PowerShell as last resort if it wasn't tried first
-    if (!extractionSuccess && process.platform === "win32" && (preferSevenZip || preferWinRAR)) {
-      try {
-        console.log("Attempting extraction with PowerShell as fallback...");
-        await new Promise((resolve, reject) => {
-          const unzip = spawn("powershell", [
-            "Expand-Archive",
-            "-Force",
-            "-Path",
-            `"${zipPath}"`,
-            "-DestinationPath",
-            `"${tempExtractPath}"`,
-          ]);
-          
-          let stderr = '';
-          unzip.stderr?.on('data', (data) => {
-            stderr += data.toString();
-          });
-          
-          unzip.on("close", (code) => {
-            if (code !== 0) {
-              reject(new Error(`PowerShell extraction failed (code ${code}): ${stderr}`));
-            } else {
-              resolve(undefined);
-            }
-          });
-          
-          unzip.on("error", (err) => {
-            reject(err);
-          });
-        });
-        
-        console.log("✓ Extraction complete with PowerShell");
-        extractionSuccess = true;
-      } catch (err) {
-        console.warn("PowerShell extraction failed:", err instanceof Error ? err.message : err);
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    
-    // If all methods failed, throw the last error
-    if (!extractionSuccess) {
-      console.error("All extraction methods failed");
-      throw lastError || new Error("Failed to extract archive with any available tool");
-    }
-    
-    event.sender.send("download-progress", { status: "installing", progress: 85 });
-    
-    // Detect mod type and move to appropriate directory
-    const extractedItems = fs.readdirSync(tempExtractPath);
-    console.log("Extracted items:", extractedItems);
-    
-    if (extractedItems.length === 0) {
-      const error = "Archive is empty";
-      console.error("Archive Error:", error);
-      cleanup(zipPath, tempExtractPath);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "Archive contains no files" 
-      });
-      return false;
-    }
-    
-    let modInstalled = false;
-    
-    for (const item of extractedItems) {
-      const itemPath = `${tempExtractPath}/${item}`;
-      const stat = fs.statSync(itemPath);
-      
-      console.log("Processing item:", item, "isDirectory:", stat.isDirectory());
-      
-      if (stat.isDirectory()) {
-        // Check if it's a BeardLib mod (has main.xml)
-        if (fs.existsSync(`${itemPath}/main.xml`)) {
-          console.log("Detected BeardLib mod:", item);
-          const destPath = `${basePath}/mods/${item}`;
-          
-          // Ensure mods directory exists
-          if (!fs.existsSync(`${basePath}/mods`)) {
-            fs.mkdirSync(`${basePath}/mods`, { recursive: true });
-            console.log("Created mods directory");
-          }
-          
-          if (fs.existsSync(destPath)) {
-            console.log("Removing existing mod at:", destPath);
-            fs.rmSync(destPath, { recursive: true, force: true });
-          }
-          
-          console.log("Installing to:", destPath);
-          fs.renameSync(itemPath, destPath);
-          saveModSourceMetadata(destPath, sourceMetadata);
-          modInstalled = true;
-          console.log("✓ BeardLib mod installed:", item);
-        }
-        // Check if it's a regular mod (has mod.txt)
-        else if (fs.existsSync(`${itemPath}/mod.txt`)) {
-          console.log("Detected BLT mod:", item);
-          const destPath = `${basePath}/mods/${item}`;
-          
-          // Ensure mods directory exists
-          if (!fs.existsSync(`${basePath}/mods`)) {
-            fs.mkdirSync(`${basePath}/mods`, { recursive: true });
-            console.log("Created mods directory");
-          }
-          
-          if (fs.existsSync(destPath)) {
-            console.log("Removing existing mod at:", destPath);
-            fs.rmSync(destPath, { recursive: true, force: true });
-          }
-          
-          console.log("Installing to:", destPath);
-          fs.renameSync(itemPath, destPath);
-          saveModSourceMetadata(destPath, sourceMetadata);
-          modInstalled = true;
-          console.log("✓ BLT mod installed:", item);
-        }
-        // Check if it's mod_overrides content
-        else if (item.toLowerCase() === 'mod_overrides' || 
-                 fs.existsSync(`${itemPath}/mod.txt`) === false) {
-          console.log("Detected mod_overrides content:", item);
-          const overridesPath = `${basePath}/assets/mod_overrides`;
-          
-          if (!fs.existsSync(overridesPath)) {
-            console.log("Creating mod_overrides directory:", overridesPath);
-            fs.mkdirSync(overridesPath, { recursive: true });
-          }
-          
-          // If the folder is named mod_overrides, move its contents
-          if (item.toLowerCase() === 'mod_overrides') {
-            console.log("Moving contents of mod_overrides folder");
-            const subItems = fs.readdirSync(itemPath);
-            console.log("Sub-items:", subItems);
-            
-            subItems.forEach(subItem => {
-              const srcPath = `${itemPath}/${subItem}`;
-              const destPath = `${overridesPath}/${subItem}`;
-              
-              if (fs.existsSync(destPath)) {
-                console.log("Removing existing override at:", destPath);
-                fs.rmSync(destPath, { recursive: true, force: true });
-              }
-              
-              console.log("Installing override:", subItem);
-              fs.renameSync(srcPath, destPath);
-              saveModSourceMetadata(destPath, sourceMetadata);
-              console.log("✓ Override installed:", subItem);
-            });
-            modInstalled = true;
-          } else {
-            // Move the folder itself to mod_overrides
-            const destPath = `${overridesPath}/${item}`;
-            
-            if (fs.existsSync(destPath)) {
-              console.log("Removing existing override at:", destPath);
-              fs.rmSync(destPath, { recursive: true, force: true });
-            }
-            
-            console.log("Installing override to:", destPath);
-            fs.renameSync(itemPath, destPath);
-            saveModSourceMetadata(destPath, sourceMetadata);
-            modInstalled = true;
-            console.log("✓ Override installed:", item);
-          }
-        } else {
-          console.log("⚠ Unknown folder type (no main.xml, mod.txt, or mod_overrides):", item);
-        }
-      } else {
-        console.log("⚠ Skipping non-directory item:", item);
-      }
-    }
-    
-    if (!modInstalled) {
-      const error = "No valid mod files found in archive";
-      console.error("Installation Error:", error);
-      console.error("Archive structure may be invalid. Expected mod folders with main.xml or mod.txt");
-      cleanup(zipPath, tempExtractPath);
-      event.sender.send("download-progress", { 
-        status: "error", 
-        error: "No valid mod files found. The archive may be corrupted or have an invalid structure." 
-      });
-      return false;
-    }
-    
-    // Cleanup
-    console.log("Cleaning up temporary files...");
-    cleanup(zipPath, tempExtractPath);
-    
-    console.log("=== Download Complete ===");
-    event.sender.send("download-progress", { status: "complete", progress: 100 });
-    
-    return true;
-  } catch (err) {
-    console.error("=== Download Failed ===");
-    console.error("Error Type:", err instanceof Error ? err.constructor.name : typeof err);
-    console.error("Error Message:", err instanceof Error ? err.message : String(err));
-    console.error("Error Stack:", err instanceof Error ? err.stack : "No stack trace");
-    
-    // Attempt cleanup
-    try {
-      const zipPath = basePath + "/temp_download.zip";
-      const tempExtractPath = basePath + "/temp_extract";
-      cleanup(zipPath, tempExtractPath);
-    } catch (cleanupErr) {
-      console.error("Cleanup during error handling failed:", cleanupErr);
-    }
-    
-    // Determine user-friendly error message
-    let userError = "Download failed";
-    if (err instanceof Error) {
-      if (err.message.includes("ENOENT")) {
-        userError = "File or directory not found. Check your Payday 2 installation path.";
-      } else if (err.message.includes("EACCES") || err.message.includes("EPERM")) {
-        userError = "Permission denied. Try running as administrator.";
-      } else if (err.message.includes("ENOSPC")) {
-        userError = "Not enough disk space.";
-      } else if (err.message.includes("network") || err.message.includes("ETIMEDOUT") || err.message.includes("ECONNREFUSED")) {
-        userError = "Network error. Check your internet connection.";
-      } else if (err.message.includes("extraction failed") || err.message.includes("Extraction failed")) {
-        userError = "Failed to extract archive. The file may be corrupted or you may need to install 7-Zip or WinRAR.";
-      } else {
-        userError = `Download failed: ${err.message}`;
-      }
-    }
-    
-    event.sender.send("download-progress", { 
-      status: "error", 
-      error: userError
-    });
-    
-    return false;
-  }
+registerDownloadHandler(ipcMain, {
+  getLatestModWorkshopFileWithRetry,
+  normalizeVersion,
+  saveModSourceMetadata,
+  extractArchiveOnLinux,
+  extractZipWithAdmZip,
 });
 
 ipcMain.handle("load-settings", async (event, operation) => {

@@ -22,6 +22,7 @@ function App() {
   const pathRef = useRef(path);
 
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const mapMods = modList.filter(mod => mod.type === 'map' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const getModInfo = {
@@ -408,7 +409,7 @@ function App() {
           <div className="mod-info-details">
             <h2 className='title'>{getModInfo.name()}</h2>
             <div className="mod-type-badge">
-              {getModInfo.type() === 'override' ? '📦 Mod Override' : '🔧 BLT/BeardLib Mod'}
+              {getModInfo.type() === 'override' ? '📦 Mod Override' : getModInfo.type() === 'map' ? '🗺️ Map Mod' : '🔧 BLT/BeardLib Mod'}
               {getModInfo.enabled() ? '' : ' • Disabled'}
             </div>
             <div>
@@ -474,7 +475,7 @@ function App() {
             </div>
             {modList.length > 0 ? (
               <>
-                {regularMods.length > 0 && (
+                    {regularMods.length > 0 && (
                   <>
                     <div className="sidebar-section-title">🔧 BLT/BeardLib Mods • {regularMods.length}</div>
                     <div className="modList">
@@ -493,6 +494,29 @@ function App() {
                     </div>
                   </>
                 )}
+
+                    {mapMods.length > 0 && (
+                      <>
+                        <div className="sidebar-section-title">🗺️ Map Mods • {mapMods.length}</div>
+                        <div className="modList">
+                          {mapMods.map((mod) => {
+                            const index = modList.indexOf(mod);
+                            return (
+                              <div
+                                key={index}
+                                className={`mod ${index === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
+                                onClick={() => setSelected(index)}
+                              >
+                                <div className={`modName ${mod.enabled === false ? 'disabled' : ''}`}>
+                                  <span className="mod-badge">🗺️</span>
+                                  {mod.name}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
 
                 {modOverrides.length > 0 && (
                   <>

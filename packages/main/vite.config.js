@@ -1,4 +1,7 @@
 import {spawn} from 'child_process';
+import {createRequire} from 'module';
+
+const require = createRequire(import.meta.url);
 
 export default /**
  * @type {import('vite').UserConfig}
@@ -10,7 +13,6 @@ export default /**
     sourcemap: 'inline',
     outDir: 'dist',
     assetsDir: '.',
-    base: './',
     target: 'node22',
     lib: {
       entry: 'src/index.ts',
@@ -72,7 +74,7 @@ function handleHotReload() {
         return;
       }
 
-      const electronPath = process.env.ELECTRON_PATH ?? 'electron';
+      const electronPath = process.env.ELECTRON_PATH ?? require('electron');
 
       /** Kill electron if a process already exists */
       if (electronApp !== null) {
