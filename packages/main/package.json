@@ -14,7 +14,7 @@
   "dependencies": {
     "@vite-electron-builder/preload": "*",
     "@vite-electron-builder/renderer": "*",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.5.17",
     "electron-updater": "6.8.3",
     "fs": "^0.0.1-security",
     "undici": "^7.22.0"
