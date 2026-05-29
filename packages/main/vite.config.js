@@ -10,6 +10,7 @@ export default /**
     sourcemap: 'inline',
     outDir: 'dist',
     assetsDir: '.',
+    base: './',
     target: 'node22',
     lib: {
       entry: 'src/index.ts',

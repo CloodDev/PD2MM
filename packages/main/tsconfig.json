@@ -9,7 +9,6 @@
     "strict": false,
     "isolatedModules": true,
     "types": ["node"],
-    "baseUrl": ".",
     "paths": {
       "@vite-electron-builder/preload": ["../preload"],
       "@vite-electron-builder/renderer": ["../renderer"]
