@@ -22,8 +22,11 @@ import { registerDownloadHandler } from "./modInstaller.js";
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
 const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
 const appAutoUpdater = autoUpdater();
+const electronAutoUpdater = appAutoUpdater.getAutoUpdater();
 const settingsDirectory = () => path.join(app.getPath("userData"), "PD2MM");
 const settingsFilePath = () => path.join(settingsDirectory(), "settings.txt");
+let updateIpcRegistered = false;
+let updateStatusListenersRegistered = false;
 
 const getActiveModPath = (basePath: string, type: string, name: string) =>
   type === "override"
@@ -170,6 +173,7 @@ type ParsedModMetadata = {
   version?: string;
   author?: string;
   image?: string;
+  color?: string;
 };
 
 type Pd2mmModSourceMetadata = {
@@ -219,11 +223,59 @@ const pickLatestModWorkshopFile = (files: ModWorkshopFile[]): ModWorkshopFile | 
 
 const MOD_SOURCE_METADATA_FILE = ".pd2mm-source.json";
 
+const normalizeModColor = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const numericParts = trimmed
+    .split(/[\s,]+/)
+    .map((part) => Number(part))
+    .filter((part) => Number.isFinite(part));
+
+  if (numericParts.length >= 3) {
+    const channels = numericParts.slice(0, 3);
+    const shouldScaleFromUnitRange = channels.every((part) => part >= 0 && part <= 1);
+    const normalizedChannels = channels.map((part) => {
+      const scaled = shouldScaleFromUnitRange ? Math.round(part * 255) : Math.round(part);
+      return Math.max(0, Math.min(255, scaled));
+    });
+
+    return `#${normalizedChannels
+      .map((part) => part.toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+
+  if (/^#|^rgb\(|^hsl\(/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return undefined;
+};
+
 const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
   try {
     const parsed = JSON.parse(rawContent);
     if (parsed && typeof parsed === "object") {
-      return parsed as ParsedModMetadata;
+      const typedParsed = parsed as ParsedModMetadata & {
+        backgroundColor?: string;
+        background_color?: string;
+        bgcolor?: string;
+        bgColor?: string;
+      };
+
+      return {
+        name: typedParsed.name,
+        version: typedParsed.version,
+        author: typedParsed.author,
+        image: typedParsed.image,
+        color: normalizeModColor(typedParsed.color || typedParsed.backgroundColor || typedParsed.background_color || typedParsed.bgcolor || typedParsed.bgColor),
+      };
     }
   } catch {
     // Fall through to tolerant parser
@@ -241,6 +293,7 @@ const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
     version: extractValue("version"),
     author: extractValue("author"),
     image: extractValue("image"),
+    color: normalizeModColor(extractValue("color") || extractValue("backgroundColor") || extractValue("background_color") || extractValue("bgcolor") || extractValue("bgColor")),
   };
 
   const hasAnyValue = Object.values(fallback).some((value) => Boolean(value));
@@ -430,6 +483,86 @@ const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | n
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getUpdateErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+
+const sendUpdateStatus = (
+  status: string,
+  version: string | null = null,
+  progress: number | null = null,
+  error: string | null = null,
+) => {
+  const window = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed());
+  if (!window || window.webContents.isDestroyed()) {
+    return false;
+  }
+
+  window.webContents.send("update:status", { status, version, progress, error });
+  return true;
+};
+
+const registerUpdateStatusListeners = () => {
+  if (updateStatusListenersRegistered) {
+    return;
+  }
+
+  electronAutoUpdater.on("checking-for-update", () => {
+    console.debug("[auto-updater] checking for update...");
+    sendUpdateStatus("checking");
+  });
+
+  electronAutoUpdater.on("update-available", (info) => {
+    console.debug("[auto-updater] update available:", info?.version);
+    sendUpdateStatus("available", info?.version ?? null);
+  });
+
+  electronAutoUpdater.on("update-not-available", () => {
+    console.debug("[auto-updater] update not available");
+    sendUpdateStatus("not-available");
+  });
+
+  electronAutoUpdater.on("download-progress", (progress) => {
+    sendUpdateStatus("downloading", null, Math.round(progress?.percent ?? 0));
+  });
+
+  electronAutoUpdater.on("update-downloaded", (info) => {
+    console.debug("[auto-updater] update downloaded:", info?.version);
+    sendUpdateStatus("downloaded", info?.version ?? null);
+  });
+
+  electronAutoUpdater.on("error", (error) => {
+    console.error("[auto-updater] error:", error);
+    sendUpdateStatus("error", null, null, getUpdateErrorMessage(error));
+  });
+
+  updateStatusListenersRegistered = true;
+};
+
+const runUpdateCheck = async (currentVersion: string, autoDownload = false) => {
+  if (!app.isPackaged) {
+    return {
+      success: false,
+      skipped: true,
+      hasUpdate: false,
+      version: null,
+      message: "Update checks are only available in packaged builds.",
+    };
+  }
+
+  const result = autoDownload
+    ? await appAutoUpdater.runAutoUpdater()
+    : await appAutoUpdater.runManualUpdateCheck(currentVersion);
+
+  return {
+    success: true,
+    skipped: false,
+    hasUpdate: Boolean(result && (result as {hasUpdate?: boolean}).hasUpdate),
+    version: (result as {version?: string | null} | null)?.version ?? null,
+    message: (result as {hasUpdate?: boolean; version?: string | null} | null)?.hasUpdate
+      ? `Update available${(result as {version?: string | null} | null)?.version ? `: ${(result as {version?: string | null} | null)?.version}` : ""}`
+      : "No updates available.",
+  };
+};
+
 const getLatestModWorkshopFileWithRetry = async (
   modId: string,
   attempts = 8,
@@ -496,6 +629,7 @@ export async function initApp(initConfig: AppInitConfig) {
     .init({
       enable: () => {
         console.log("App is ready");
+        registerUpdateStatusListeners();
         
         // Make deep link handler available to IPC handlers
         ipcMain.handle("handle-deep-link", async (event, url: string) => {
@@ -557,17 +691,32 @@ ipcMain.handle("list-mods", async (event, operation) => {
     return [];
   }
   try {
-    const allMods: Array<{name: string, type: string, enabled: boolean}> = [];
+    const allMods: Array<{name: string, type: string, enabled: boolean, color?: string}> = [];
     const discoveredMods = new Set<string>();
 
-    const addModEntry = (name: string, type: string, enabled: boolean) => {
+    const readModColor = (modPath: string) => {
+      const modTxtPath = `${modPath}/mod.txt`;
+      if (!fs.existsSync(modTxtPath)) {
+        return undefined;
+      }
+
+      try {
+        const modText = fs.readFileSync(modTxtPath, "utf8");
+        const mod = tryParseModTxt(modText);
+        return mod?.color || undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const addModEntry = (name: string, type: string, enabled: boolean, color?: string) => {
       const key = `${type}:${name}`;
       if (discoveredMods.has(key)) {
         return;
       }
 
       discoveredMods.add(key);
-      allMods.push({ name, type, enabled });
+      allMods.push({ name, type, enabled, color });
     };
     
     // Check regular mods folder
@@ -585,7 +734,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(mod, "mod", true);
+        addModEntry(mod, "mod", true, readModColor(modPath));
       });
     }
 
@@ -603,7 +752,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(map, "map", true);
+        addModEntry(map, "map", true, readModColor(mapPath));
       });
     }
 
@@ -617,7 +766,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(mod, "mod", false);
+        addModEntry(mod, "mod", false, readModColor(modPath));
       });
     }
 
@@ -631,7 +780,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(map, "map", false);
+        addModEntry(map, "map", false, readModColor(mapPath));
       });
     }
     
@@ -649,7 +798,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(mod, "override", true);
+        addModEntry(mod, "override", true, readModColor(modPath));
       });
     }
 
@@ -663,7 +812,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
           return;
         }
 
-        addModEntry(mod, "override", false);
+        addModEntry(mod, "override", false, readModColor(modPath));
       });
     }
     
@@ -709,6 +858,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
         image: img,
         version: mod.version || "Unknown",
         author: mod.author || "Unknown",
+        color: mod.color || undefined,
       };
     }
     
@@ -724,6 +874,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
         name: nameMatch ? nameMatch[1] : modData.name,
         author: authorMatch ? authorMatch[1] : "Unknown",
         version: versionMatch ? versionMatch[1] : "Unknown",
+        color: undefined,
         image: undefined
       };
     }
@@ -732,6 +883,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       name: modData.name,
       author: "Unknown",
       version: "Unknown",
+      color: undefined,
       image: undefined
     };
   } catch (err) {
@@ -740,6 +892,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       name: operation.name || "Unknown",
       author: "Unknown",
       version: "Unknown",
+      color: undefined,
       image: undefined
     };
   }
@@ -982,48 +1135,71 @@ ipcMain.handle("window-close", async (event) => {
   window?.close();
 });
 
-ipcMain.handle("check-app-update", async () => {
-  // if (!app.isPackaged) {
-  //   return {
-  //     success: false,
-  //     skipped: true,
-  //     hasUpdate: false,
-  //     version: null,
-  //     message: "Update checks are only available in packaged builds.",
-  //   };
-  // }
+const registerUpdateHandlers = () => {
+  if (updateIpcRegistered) {
+    return;
+  }
 
-  try {
-    console.debug("[auto-updater][manual] check requested");
-    const result = await appAutoUpdater.runManualUpdateCheck(app.getVersion());
+  ipcMain.handle("check-app-update", async () => {
+    try {
+      console.debug("[auto-updater][manual] check requested");
+      return await runUpdateCheck(app.getVersion(), false);
+    } catch (error) {
+      console.error("[auto-updater][manual] check failed", error);
 
-    if (!result.success) {
       return {
         success: false,
         skipped: false,
         hasUpdate: false,
         version: null,
-        message: result.message || "Failed to check for updates.",
+        message: getUpdateErrorMessage(error) || "Failed to check for updates.",
+      };
+    }
+  });
+
+  ipcMain.handle("update:check", async () => {
+    try {
+      return await runUpdateCheck(app.getVersion(), false);
+    } catch (error) {
+      console.error("[auto-updater][manual] check failed", error);
+
+      return {
+        success: false,
+        skipped: false,
+        hasUpdate: false,
+        version: null,
+        message: getUpdateErrorMessage(error) || "Failed to check for updates.",
+      };
+    }
+  });
+
+  ipcMain.handle("update:download", async () => {
+    if (!app.isPackaged) {
+      return {
+        success: false,
+        skipped: true,
+        message: "Update downloads are only available in packaged builds.",
       };
     }
 
-    return {
-      success: true,
-      hasUpdate: result.hasUpdate,
-      version: result.version,
-      message: result.hasUpdate
-        ? `Update available${result.version ? `: ${result.version}` : ""}`
-        : "No updates available.",
-    };
-  } catch (error) {
-    console.error("[auto-updater][manual] check failed", error);
+    await appAutoUpdater.downloadUpdate();
+    return { success: true };
+  });
 
-    return {
-      success: false,
-      skipped: false,
-      hasUpdate: false,
-      version: null,
-      message: error instanceof Error ? error.message : "Failed to check for updates.",
-    };
-  }
-});
+  ipcMain.handle("update:install", async () => {
+    if (!app.isPackaged) {
+      return {
+        success: false,
+        skipped: true,
+        message: "Update installation is only available in packaged builds.",
+      };
+    }
+
+    await appAutoUpdater.installUpdate();
+    return { success: true };
+  });
+
+  updateIpcRegistered = true;
+};
+
+registerUpdateHandlers();

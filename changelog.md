@@ -2,6 +2,14 @@
 
 This changelog is reconstructed from the repository's tagged release history starting at the first 1.0-series tag found in git (`v1.0.1`).
 
+## 1.6.7
+- Refactored mod installation: moved download + install logic into a dedicated `modInstaller` module and moved detection logic into `modDetection`.
+- Improved Linux archive extraction by trying multiple extractors and falling back to `adm-zip` for `.zip` files.
+- Fixed map extraction/routing so detected maps are installed to the `Maps` folder.
+- Added map support in the renderer UI: `Map Mods` section and map badge in the mod details panel.
+- Fixed development startup: resolved Electron spawn path and removed duplicate launches so `npm run start` reliably launches the app.
+- Resolved an ESLint peer-version conflict and refreshed the lockfile to stabilize CI installs.
+
 ## 1.6.4
 - Improved build and extraction behavior across platforms.
 - Switched Linux packaging to a self-contained AppImage path.

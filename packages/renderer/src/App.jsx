@@ -17,6 +17,7 @@ function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCheckingModUpdate, setIsCheckingModUpdate] = useState(false);
   const [isCheckingAppUpdate, setIsCheckingAppUpdate] = useState(false);
+  const [appUpdateStatus, setAppUpdateStatus] = useState(null);
   const [isLaunchingGame, setIsLaunchingGame] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const pathRef = useRef(path);
@@ -24,14 +25,35 @@ function App() {
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const mapMods = modList.filter(mod => mod.type === 'map' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const enabledMods = modList.filter(mod => mod.enabled !== false).length;
+  const configuredPath = path && path !== 'C:\\mods' ? path : 'No game folder selected';
 
   const getModInfo = {
     author: () => selectedModData.author || 'No author found',
     version: () => selectedModData.version || 'No version found',
     name: () => selectedModData.name || (modList[selected]?.name || 'Unknown'),
     image: () => selectedModData.image,
+    color: () => selectedModData.color || modList[selected]?.color,
     type: () => modList[selected]?.type || 'mod',
     enabled: () => modList[selected]?.enabled !== false
+  };
+
+  const getSidebarItemStyle = (mod, isSelected) => {
+    if (!mod?.color) {
+      return undefined;
+    }
+
+    const fillOpacity = isSelected ? 0.18 : 0.12;
+    const tintOpacity = isSelected ? 0.14 : 0.08;
+
+    return {
+      backgroundColor: `color-mix(in srgb, ${mod.color} ${Math.round(fillOpacity * 100)}%, rgba(255, 255, 255, ${isSelected ? 0.07 : 0.03}))`,
+      backgroundImage: `linear-gradient(90deg, color-mix(in srgb, ${mod.color} ${Math.round(tintOpacity * 100)}%, transparent), rgba(255, 255, 255, 0.01))`,
+      border: `1px solid color-mix(in srgb, ${mod.color} 20%, rgba(255, 255, 255, 0.12))`,
+      boxShadow: isSelected
+        ? `0 0 0 1px color-mix(in srgb, ${mod.color} 30%, transparent)`
+        : `inset 0 0 0 1px color-mix(in srgb, ${mod.color} 8%, transparent)`,
+    };
   };
 
   const handleDirectorySelect = async () => {
@@ -129,14 +151,15 @@ function App() {
   const handleCheckForAppUpdate = async () => {
     setIsCheckingAppUpdate(true);
     setErrorMessage('');
-    setSuccessMessage('');
+    setAppUpdateStatus({ status: 'checking' });
 
     try {
-      const result = await window.electron.ipcRenderer.invoke('check-app-update');
+      const result = await window.electron.ipcRenderer.invoke('update:check');
 
       if (!result?.success) {
         const failureMessage = result?.message || 'Failed to check for app updates.';
         if (result?.skipped) {
+          setAppUpdateStatus(null);
           setSuccessMessage(`ℹ️ ${failureMessage}`);
           setTimeout(() => setSuccessMessage(''), 4000);
           return;
@@ -145,20 +168,131 @@ function App() {
         setErrorMessage(failureMessage);
         return;
       }
-
-      if (result?.hasUpdate) {
-        setSuccessMessage(`⬆️ Update available${result?.version ? `: ${result.version}` : ''}`);
-      } else {
-        setSuccessMessage('✓ App is up to date');
-      }
-
-      setTimeout(() => setSuccessMessage(''), 4000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to check for app updates.');
     } finally {
       setIsCheckingAppUpdate(false);
     }
   };
+
+  const handleDownloadAppUpdate = async () => {
+    setErrorMessage('');
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke('update:download');
+      if (!result?.success) {
+        const failureMessage = result?.message || 'Failed to download the app update.';
+        if (result?.skipped) {
+          setSuccessMessage(`ℹ️ ${failureMessage}`);
+          setTimeout(() => setSuccessMessage(''), 4000);
+          return;
+        }
+
+        setErrorMessage(failureMessage);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to download the app update.');
+    }
+  };
+
+  const handleInstallAppUpdate = async () => {
+    setErrorMessage('');
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke('update:install');
+      if (!result?.success) {
+        const failureMessage = result?.message || 'Failed to install the app update.';
+        if (result?.skipped) {
+          setSuccessMessage(`ℹ️ ${failureMessage}`);
+          setTimeout(() => setSuccessMessage(''), 4000);
+          return;
+        }
+
+        setErrorMessage(failureMessage);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to install the app update.');
+    }
+  };
+
+  const appUpdateStatusText = (() => {
+    if (!appUpdateStatus) return null;
+
+    switch (appUpdateStatus.status) {
+      case 'checking':
+        return 'Checking for updates...';
+      case 'available':
+        return `Update available${appUpdateStatus.version ? `: v${appUpdateStatus.version}` : ''}`;
+      case 'not-available':
+        return 'You have the latest version';
+      case 'downloading':
+        return `Downloading: ${Math.round(appUpdateStatus.progress || 0)}%`;
+      case 'downloaded':
+        return `Update ready to install${appUpdateStatus.version ? ` (v${appUpdateStatus.version})` : ''}`;
+      case 'error':
+        return `Error: ${appUpdateStatus.error}`;
+      default:
+        return null;
+    }
+  })();
+
+  const notificationCards = [
+    isDownloading
+      ? {
+          key: 'download-progress',
+          tone: 'info',
+          title: 'Downloading Mod',
+          body:
+            downloadProgress.status === 'fetching'
+              ? 'Fetching mod information...'
+              : downloadProgress.status === 'downloading'
+                ? `Downloading... ${Math.round(downloadProgress.progress || 0)}%`
+                : downloadProgress.status === 'extracting'
+                  ? 'Extracting archive...'
+                  : downloadProgress.status === 'installing'
+                    ? 'Installing mod...'
+                    : 'Preparing download...',
+          progress: downloadProgress.progress,
+        }
+      : null,
+    appUpdateStatusText && appUpdateStatus
+      ? {
+          key: 'app-update',
+          tone:
+            appUpdateStatus.status === 'error'
+              ? 'danger'
+              : appUpdateStatus.status === 'downloaded'
+                ? 'success'
+                : 'info',
+          title: 'App Update',
+          body: appUpdateStatusText,
+          actions:
+            appUpdateStatus.status === 'available'
+              ? [{ label: 'Download', onClick: handleDownloadAppUpdate }]
+              : appUpdateStatus.status === 'downloaded'
+                ? [{ label: 'Install & Restart', onClick: handleInstallAppUpdate }]
+                : appUpdateStatus.status === 'error' || appUpdateStatus.status === 'not-available'
+                  ? [{ label: 'Check Again', onClick: handleCheckForAppUpdate }]
+                  : [],
+        }
+      : null,
+    successMessage
+      ? {
+          key: 'success',
+          tone: 'success',
+          title: 'Success',
+          body: successMessage,
+        }
+      : null,
+    errorMessage
+      ? {
+          key: 'error',
+          tone: 'danger',
+          title: 'Error',
+          body: errorMessage,
+        }
+      : null,
+  ].filter(Boolean);
 
   const handleLaunchGame = async () => {
     setIsLaunchingGame(true);
@@ -274,6 +408,17 @@ function App() {
       setIsSettingsLoaded(true);
     });
 
+    const handleUpdateStatus = (data) => {
+      setAppUpdateStatus(data || null);
+      setIsCheckingAppUpdate(data?.status === 'checking');
+
+      if (data?.status === 'error') {
+        setErrorMessage(data.error || 'Failed to check for app updates.');
+      } else if (data?.status === 'available' || data?.status === 'not-available' || data?.status === 'downloaded') {
+        setErrorMessage('');
+      }
+    };
+
     // Listen for download progress
     const handleDownloadProgress = (data) => {
       setDownloadProgress(data);
@@ -346,14 +491,20 @@ function App() {
     };
 
     window.electron.ipcRenderer.on('download-progress', handleDownloadProgress);
+    window.electron.ipcRenderer.on('update:status', handleUpdateStatus);
     window.electron.ipcRenderer.on('deep-link', handleDeepLink);
 
     console.log('★★★ RENDERER: Event listeners registered');
+
+    window.electron.ipcRenderer.invoke('update:check').catch((error) => {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to check for app updates.');
+    });
 
     // Cleanup listeners on unmount
     return () => {
       console.log('★★★ RENDERER: Cleaning up event listeners');
       window.electron.ipcRenderer.removeListener('download-progress', handleDownloadProgress);
+      window.electron.ipcRenderer.removeListener('update:status', handleUpdateStatus);
       window.electron.ipcRenderer.removeListener('deep-link', handleDeepLink);
     };
   }, []);
@@ -456,12 +607,42 @@ function App() {
 
   return (
     <div className='root'>
+      {notificationCards.length > 0 && (
+        <div className="notification-stack" aria-live="polite" aria-atomic="true">
+          {notificationCards.map((notification) => (
+            <div key={notification.key} className={`notification-toast notification-toast-${notification.tone}`}>
+              <div className="notification-toast-header">
+                <div className="notification-toast-title">{notification.title}</div>
+                {notification.tone === 'info' && <div className="notification-toast-pill">Live</div>}
+              </div>
+              <div className="notification-toast-body">{notification.body}</div>
+              {typeof notification.progress === 'number' && (
+                <div className="notification-toast-progress">
+                  <div className="notification-toast-progress-fill" style={{ width: `${Math.max(0, Math.min(100, notification.progress))}%` }} />
+                </div>
+              )}
+              {Array.isArray(notification.actions) && notification.actions.length > 0 && (
+                <div className="notification-toast-actions">
+                  {notification.actions.map((action) => (
+                    <button key={action.label} className="notification-toast-button" onClick={action.onClick}>
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <TitleBar />
       <div className="app-container">
         <div className="sidebar">
           <div className="sidebar-header">
-            <span>🎮</span>
-            <span>Installed Mods</span>
+            <div className="sidebar-header-copy">
+              <span className="sidebar-eyebrow">Library</span>
+              <span className="sidebar-title">Installed Mods</span>
+            </div>
+            <div className="sidebar-chip">{modList.length} loaded</div>
           </div>
           <div className="sidebar-section">
             <div className="searchContainer">
@@ -484,6 +665,7 @@ function App() {
                         return (
                           <div
                             className={`mod ${globalIndex === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
+                            style={getSidebarItemStyle(mod, globalIndex === selected)}
                             onClick={() => setSelected(globalIndex)}
                             key={globalIndex}
                           >
@@ -505,6 +687,7 @@ function App() {
                               <div
                                 key={index}
                                 className={`mod ${index === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
+                                style={getSidebarItemStyle(mod, index === selected)}
                                 onClick={() => setSelected(index)}
                               >
                                 <div className={`modName ${mod.enabled === false ? 'disabled' : ''}`}>
@@ -527,6 +710,7 @@ function App() {
                         return (
                           <div
                             className={`mod ${globalIndex === selected ? 'selected' : ''} ${mod.enabled === false ? 'disabled' : ''}`}
+                            style={getSidebarItemStyle(mod, globalIndex === selected)}
                             onClick={() => setSelected(globalIndex)}
                             key={globalIndex}
                           >
@@ -552,28 +736,51 @@ function App() {
         </div>
         <div className="main-content">
           <div className="content-header">
-            <h3 className="section-title">Download Mod</h3>
+            <div className="content-header-copy">
+              <h1 className="content-title">PD2MM</h1>
+            </div>
             <div className="content-header-actions">
-              <button className="action-button" onClick={handleDirectorySelect}>
-                📁 Select Game Folder
+              <button className="action-button header-action-button" onClick={handleDirectorySelect} title="Select Game Folder" aria-label="Select Game Folder">
+                📁
               </button>
               <button
-                className="action-button success"
+                className="action-button success header-action-button"
                 onClick={handleLaunchGame}
                 disabled={isLaunchingGame}
+                title="Launch Game"
+                aria-label="Launch Game"
               >
-                {isLaunchingGame ? '⏳ Launching...' : '▶️ Launch Game'}
+                {isLaunchingGame ? '⏳' : '🚀'}
               </button>
               <button
-                className="action-button secondary"
+                className="action-button secondary header-action-button"
                 onClick={handleCheckForAppUpdate}
                 disabled={isCheckingAppUpdate}
+                title="Check App Update"
+                aria-label="Check App Update"
               >
-                {isCheckingAppUpdate ? '⏳ Checking App Update...' : '🔄 Check App Update'}
+                {isCheckingAppUpdate ? '⏳' : '⬆️'}
               </button>
             </div>
           </div>
           <div className="content-body">
+            <div className="workspace-hero">
+              <div className="workspace-hero-copy">
+                <span className="workspace-hero-kicker">Current setup</span>
+                <div className="workspace-hero-title">{configuredPath}</div>
+                <div className="workspace-hero-subtitle">Use the downloader, then manage installs from the list below.</div>
+              </div>
+              <div className="workspace-hero-stats">
+                <div className="hero-stat">
+                  <span>Mods</span>
+                  <strong>{modList.length}</strong>
+                </div>
+                <div className="hero-stat">
+                  <span>Active</span>
+                  <strong>{enabledMods}</strong>
+                </div>
+              </div>
+            </div>
             <div className="modDownload">
               <div className="download-form">
                 <div className="input-group">
@@ -595,25 +802,6 @@ function App() {
                   {isDownloading ? '⏳ Downloading...' : '⬇️ Download'}
                 </button>
               </div>
-              {isDownloading && (
-                <div className="progress-container">
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${downloadProgress.progress}%` }}
-                    ></div>
-                  </div>
-                  <div className="progress-text">
-                    {downloadProgress.status === 'fetching' && 'Fetching mod information...'}
-                    {downloadProgress.status === 'downloading' && `Downloading... ${downloadProgress.progress}%`}
-                    {downloadProgress.status === 'extracting' && 'Extracting archive...'}
-                    {downloadProgress.status === 'installing' && 'Installing mod...'}
-                    {downloadProgress.status === 'complete' && '✅ Complete!'}
-                  </div>
-                </div>
-              )}
-              {successMessage && <div className="successMsg">{successMessage}</div>}
-              {errorMessage && <div className="errorMsg">{errorMessage}</div>}
             </div>
             {renderModInfo()}
           </div>

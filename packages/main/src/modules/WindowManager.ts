@@ -23,6 +23,8 @@ class WindowManager implements AppModule {
 
   async createWindow(): Promise<BrowserWindow> {
     const browserWindow = new BrowserWindow({
+      width: 1280,
+      height: 720,
       show: false, // Use the 'ready-to-show' event to show the instantiated BrowserWindow.
       frame: false, // Remove default title bar
       titleBarStyle: 'hidden',

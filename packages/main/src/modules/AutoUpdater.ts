@@ -39,7 +39,6 @@ export class AutoUpdater implements AppModule {
     }
 
     await app.whenReady();
-    await this.runAutoUpdater();
 
     const timer = setInterval(() => {
       this.runAutoUpdater().catch((error) => {
@@ -64,6 +63,8 @@ export class AutoUpdater implements AppModule {
   #configureUpdater(updater: AppUpdater) {
     updater.logger = this.#logger || console;
     updater.fullChangelog = true;
+    updater.autoDownload = false;
+    updater.autoInstallOnAppQuit = true;
     this.registerDebugListeners(updater);
 
     const updateFeedConfig: FeedURLConfig = {
@@ -145,7 +146,7 @@ export class AutoUpdater implements AppModule {
         channel: updater.channel,
       });
 
-      const result = await updater.checkForUpdatesAndNotify(this.#notification);
+      const result = await updater.checkForUpdates();
       console.debug('[auto-updater] update check completed', {
         version: result?.updateInfo?.version,
       });
@@ -170,7 +171,6 @@ export class AutoUpdater implements AppModule {
       const updateFeedConfig = this.#configureUpdater(updater);
       const previousAutoDownload = updater.autoDownload;
       updater.autoDownload = false;
-      console.log(updater)
       try {
         console.debug('[auto-updater][manual] checking for updates', {
           provider: updateFeedConfig.provider,
@@ -180,7 +180,6 @@ export class AutoUpdater implements AppModule {
         });
 
         const result = await updater.checkForUpdates();
-        console.log(result)
         const version = result?.updateInfo?.version ?? null;
         const hasUpdate = Boolean(version && (!currentVersion || version !== currentVersion));
 
@@ -216,6 +215,18 @@ export class AutoUpdater implements AppModule {
         message: error instanceof Error ? error.message : 'Failed to check for updates.',
       };
     }
+  }
+
+  async downloadUpdate() {
+    const updater = this.getAutoUpdater();
+    this.#configureUpdater(updater);
+    return updater.downloadUpdate();
+  }
+
+  async installUpdate() {
+    const updater = this.getAutoUpdater();
+    this.#configureUpdater(updater);
+    updater.quitAndInstall();
   }
 }
 

@@ -3,11 +3,12 @@
   justify-content: space-between;
   align-items: center;
   height: 32px;
-  background: #1a1d23;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(13, 17, 26, 0.96), rgba(11, 14, 22, 0.88));
+  border-bottom: 1px solid rgba(188, 205, 255, 0.10);
   user-select: none;
   position: relative;
   z-index: 1000;
+  backdrop-filter: blur(10px) saturate(115%);
 }
 
 .title-bar-drag-region {
@@ -22,54 +23,75 @@
 .title-bar-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #b9bbbe;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #d8e2f3;
+  letter-spacing: 0.04em;
 }
 
 .app-icon {
-  font-size: 16px;
+  font-size: 14px;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(139, 211, 255, 0.18), rgba(139, 211, 255, 0.08));
+  border: 1px solid rgba(139, 211, 255, 0.16);
 }
 
 .title-bar-controls {
   display: flex;
+  align-items: center;
   height: 100%;
+  gap: 2px;
   -webkit-app-region: no-drag;
 }
 
 .title-bar-button {
-  width: 46px;
-  height: 100%;
+  width: 30px;
+  height: 24px;
   border: none;
   background: transparent;
-  color: #8e9297;
+  color: #96a0b6;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  margin: 0 2px;
+  border-radius: 8px;
+  line-height: 0;
 }
 
 .title-bar-button:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .title-bar-button:active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .title-bar-button.close:hover {
-  background: #ed4245;
-  color: white;
+  background: linear-gradient(180deg, rgba(255, 127, 143, 0.92), rgba(241, 94, 113, 0.92));
+  color: #ffffff;
 }
 
 .title-bar-button.close:active {
-  background: #c03537;
+  background: linear-gradient(180deg, rgba(255, 127, 143, 1), rgba(241, 94, 113, 1));
 }
 
 .title-bar-button svg {
   fill: currentColor;
+}
+
+.title-bar-button.minimize svg,
+.title-bar-button.maximize svg,
+.title-bar-button.close svg {
+  width: 8px;
+  height: 8px;
 }
