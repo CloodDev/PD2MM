@@ -21,6 +21,7 @@ function App() {
   const [isLaunchingGame, setIsLaunchingGame] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const pathRef = useRef(path);
+  const appUpdateStatusTimeoutRef = useRef(null);
 
   const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const mapMods = modList.filter(mod => mod.type === 'map' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -235,6 +236,46 @@ function App() {
         return null;
     }
   })();
+
+  useEffect(() => {
+    if (appUpdateStatusTimeoutRef.current) {
+      clearTimeout(appUpdateStatusTimeoutRef.current);
+      appUpdateStatusTimeoutRef.current = null;
+    }
+
+    if (!appUpdateStatus) {
+      return;
+    }
+
+    const dismissAfterMs = (() => {
+      switch (appUpdateStatus.status) {
+        case 'available':
+          return 60000;
+        case 'downloaded':
+          return 15000;
+        case 'not-available':
+          return 5000;
+        case 'error':
+          return 10000;
+        default:
+          return null;
+      }
+    })();
+
+    if (dismissAfterMs) {
+      appUpdateStatusTimeoutRef.current = setTimeout(() => {
+        setAppUpdateStatus(null);
+        appUpdateStatusTimeoutRef.current = null;
+      }, dismissAfterMs);
+    }
+
+    return () => {
+      if (appUpdateStatusTimeoutRef.current) {
+        clearTimeout(appUpdateStatusTimeoutRef.current);
+        appUpdateStatusTimeoutRef.current = null;
+      }
+    };
+  }, [appUpdateStatus]);
 
   const notificationCards = [
     isDownloading

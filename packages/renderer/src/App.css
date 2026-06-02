@@ -43,7 +43,8 @@
 
 .notification-stack {
   position: fixed;
-  top: 44px;
+  top: auto;
+  bottom: 18px;
   right: 18px;
   z-index: 4000;
   width: min(380px, calc(100vw - 24px));
@@ -172,7 +173,8 @@
 
 @media (max-width: 720px) {
   .notification-stack {
-    top: 40px;
+    top: auto;
+    bottom: 12px;
     right: 12px;
     left: 12px;
     width: auto;
