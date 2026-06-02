@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './TitleBar.css';
 
 function TitleBar() {
@@ -47,4 +47,4 @@ function TitleBar() {
   );
 }
 
-export default TitleBar;
+export default React.memo(TitleBar);

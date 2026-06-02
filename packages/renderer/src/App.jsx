@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import './App.css'
 import TitleBar from './TitleBar'
 
-const MOD_REFRESH_INTERVAL_MS = 10000;
+const MOD_REFRESH_INTERVAL_MS = 30000;
 
 function App() {
   const [path, setPath] = useState('');
@@ -23,11 +23,11 @@ function App() {
   const pathRef = useRef(path);
   const appUpdateStatusTimeoutRef = useRef(null);
 
-  const regularMods = modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const mapMods = modList.filter(mod => mod.type === 'map' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const modOverrides = modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const enabledMods = modList.filter(mod => mod.enabled !== false).length;
-  const configuredPath = path && path !== 'C:\\mods' ? path : 'No game folder selected';
+  const regularMods = useMemo(() => modList.filter(mod => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase())), [modList, searchTerm]);
+  const mapMods = useMemo(() => modList.filter(mod => mod.type === 'map' && mod.name.toLowerCase().includes(searchTerm.toLowerCase())), [modList, searchTerm]);
+  const modOverrides = useMemo(() => modList.filter(mod => mod.type === 'override' && mod.name.toLowerCase().includes(searchTerm.toLowerCase())), [modList, searchTerm]);
+  const enabledMods = useMemo(() => modList.filter(mod => mod.enabled !== false).length, [modList]);
+  const configuredPath = useMemo(() => (path && path !== 'C:\\mods' ? path : 'No game folder selected'), [path]);
 
   const getModInfo = {
     author: () => selectedModData.author || 'No author found',
@@ -57,14 +57,20 @@ function App() {
     };
   };
 
-  const handleDirectorySelect = async () => {
+  const listMods = useCallback(async () => {
+    const mods = await window.electron.ipcRenderer.invoke('list-mods', path);
+    setModList(mods);
+    return mods;
+  }, [path]);
+
+  const handleDirectorySelect = useCallback(async () => {
     const exportPath = await window.electron.ipcRenderer.invoke('select-directory', 'export');
     setPath(exportPath);
     listMods();
     return exportPath;
-  };
+  }, [listMods]);
 
-  const downloadModFromUrl = async (url, successText) => {
+  const downloadModFromUrl = useCallback(async (url, successText) => {
     setIsDownloading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -91,13 +97,13 @@ function App() {
     }, 3000);
 
     return true;
-  };
+  }, [listMods, path]);
 
-  const handleModDownload = async () => {
+  const handleModDownload = useCallback(async () => {
     await downloadModFromUrl(modLink, '✓ Mod installed successfully!');
-  };
+  }, [downloadModFromUrl, modLink]);
 
-  const handleCheckForModUpdate = async () => {
+  const handleCheckForModUpdate = useCallback(async () => {
     if (selected === -1 || !modList[selected]) {
       return;
     }
@@ -147,9 +153,9 @@ function App() {
     } finally {
       setIsCheckingModUpdate(false);
     }
-  };
+  }, [selected, modList, path, downloadModFromUrl]);
 
-  const handleCheckForAppUpdate = async () => {
+  const handleCheckForAppUpdate = useCallback(async () => {
     setIsCheckingAppUpdate(true);
     setErrorMessage('');
     setAppUpdateStatus({ status: 'checking' });
@@ -174,9 +180,9 @@ function App() {
     } finally {
       setIsCheckingAppUpdate(false);
     }
-  };
+  }, []);
 
-  const handleDownloadAppUpdate = async () => {
+  const handleDownloadAppUpdate = useCallback(async () => {
     setErrorMessage('');
 
     try {
@@ -194,9 +200,9 @@ function App() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to download the app update.');
     }
-  };
+  }, []);
 
-  const handleInstallAppUpdate = async () => {
+  const handleInstallAppUpdate = useCallback(async () => {
     setErrorMessage('');
 
     try {
@@ -214,7 +220,7 @@ function App() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to install the app update.');
     }
-  };
+  }, []);
 
   const appUpdateStatusText = (() => {
     if (!appUpdateStatus) return null;
@@ -277,7 +283,7 @@ function App() {
     };
   }, [appUpdateStatus]);
 
-  const notificationCards = [
+  const notificationCards = useMemo(() => [
     isDownloading
       ? {
           key: 'download-progress',
@@ -333,7 +339,7 @@ function App() {
           body: errorMessage,
         }
       : null,
-  ].filter(Boolean);
+  ].filter(Boolean), [isDownloading, downloadProgress, appUpdateStatus, appUpdateStatusText, successMessage, errorMessage, handleDownloadAppUpdate, handleInstallAppUpdate, handleCheckForAppUpdate]);
 
   const handleLaunchGame = async () => {
     setIsLaunchingGame(true);
@@ -431,11 +437,7 @@ function App() {
     }
   };
 
-  const listMods = async () => {
-    const mods = await window.electron.ipcRenderer.invoke('list-mods', path);
-    setModList(mods);
-    return mods;
-  };
+  
 
   useEffect(() => {
     pathRef.current = path;

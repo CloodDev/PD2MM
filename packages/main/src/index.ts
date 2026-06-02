@@ -596,7 +596,7 @@ export async function initApp(initConfig: AppInitConfig) {
       })
     )
     .init(terminateAppOnLastWindowClose())
-    .init(hardwareAccelerationMode({ enable: false }))
+    .init(hardwareAccelerationMode({ enable: true }))
     .init(appAutoUpdater)
     // Install DevTools extension if needed
     // .init(chromeDevToolsExtension({extension: 'VUEJS3_DEVTOOLS'}))
