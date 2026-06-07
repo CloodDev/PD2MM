@@ -25,13 +25,19 @@ export default /** @type import('electron-builder').Configuration */
   win: {
     target: [{
       target: 'nsis',
-      arch: ['x64', 'ia32']
+      arch: ['x64', 'ia32'],
     }]
   },
   protocols: [{
     name: 'MWS-PDMM Protocol',
     schemes: ['mws-pdmm']
   }],
+  nsis: {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+  },
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
    * as they can unpredictably change during deployment, making them impossible to locate and download for update.

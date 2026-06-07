@@ -39,8 +39,9 @@ PD2MM uses `electron-updater` for release updates.
 - Automatic checks run only in packaged builds.
 - A manual check is available in the UI via **Check App Update**.
 - Manual checks report availability and do not auto-download.
-
 ### Update Configuration
+
+PD2MM integrates `electron-updater` for release updates. Automatic update checks and the updater UI are only active in packaged builds (not during development).
 
 Optional environment variables used by the main-process updater:
 
@@ -48,9 +49,7 @@ Optional environment variables used by the main-process updater:
 - `VITE_UPDATE_GITHUB_REPO` (default: `PD2MM`)
 - `VITE_DISTRIBUTION_CHANNEL` (optional release channel)
 
-If unset, PD2MM defaults to this repository’s public releases.
-
-<sub> might be broken currently as i dont get electron updater </sub>
+If unset, PD2MM uses this repository's public releases. The updater is implemented in the main process and exposes a manual "Check App Update" action in the UI; update download and installation behavior follows the packaged build configuration.
 ## Development
 
 ### Prerequisites
