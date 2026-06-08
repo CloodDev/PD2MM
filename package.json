@@ -33,7 +33,7 @@
     "@npmcli/map-workspaces": "6.0.0",
     "@playwright/test": "^1.60.0",
     "@types/node": "25.9.1",
-    "electron": "^42.3.2",
+    "electron": "^42.3.3",
     "electron-builder": "^26.14.0",
     "glob": "^13.0.6",
     "playwright": "^1.58.2"
