@@ -36,7 +36,7 @@
     "electron": "^42.3.3",
     "electron-builder": "^26.14.0",
     "glob": "^13.0.6",
-    "playwright": "^1.58.2"
+    "playwright": "^1.60.0"
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.61.0"
