@@ -22,6 +22,9 @@
     "compile:linux": "npm run build && electron-builder build --linux --config electron-builder.mjs",
     "publish": "node scripts/publish.mjs",
     "test": "npx playwright test ./tests/e2e.spec.ts",
+    "test:unit": "vitest",
+    "test:unit:run": "vitest run",
+    "test:unit:watch": "vitest --watch",
     "start": "node packages/dev-mode.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "create-renderer": "cd packages && npm create vite@latest renderer",
@@ -32,16 +35,24 @@
   "devDependencies": {
     "@npmcli/map-workspaces": "6.0.0",
     "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
     "@types/node": "25.9.1",
     "electron": "^42.3.2",
     "electron-builder": "^26.14.0",
     "glob": "^13.0.6",
-    "playwright": "^1.58.2"
+    "jsdom": "^22.1.0",
+    "playwright": "^1.58.2",
+    "vitest": "^4.1.8"
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.61.0"
   },
   "dependencies": {
     "@vite-electron-builder/main": "*"
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.21.5": true
   }
 }
