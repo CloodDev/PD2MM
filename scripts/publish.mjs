@@ -173,10 +173,6 @@ runCommand(
   ['release', 'view', tag, '--repo', repo],
   {env: getAuthenticatedGhEnv()},
 );
-runCommand("git", ["add","."]);
-runCommand("git", ["commit", "-m", `chore: release ${tag}`]);
-runCommand("git", ["push"]);
-
 uploadAssetWithRetry(artifactExe);
 uploadAssetWithRetry(artifactBlockmap);
 uploadAssetWithRetry(latestYml);

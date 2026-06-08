@@ -1,7 +1,7 @@
 {
   "name": "pd2mm",
   "description": "Payday 2 Mod Manager built with Electron, Vite, and TypeScript.",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "private": false,
   "type": "module",
   "author": {
@@ -26,7 +26,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "create-renderer": "cd packages && npm create vite@latest renderer",
     "integrate-renderer": "npm start --workspace @vite-electron-builder/integrate-renderer",
-    "init": "npm run create-renderer && npm run integrate-renderer && npm install"
+    "init": "npm run create-renderer && npm run integrate-renderer && npm install",
+    "generate-changelog": "node ./scripts/generate-changelog.mjs"
   },
   "devDependencies": {
     "@npmcli/map-workspaces": "6.0.0",
