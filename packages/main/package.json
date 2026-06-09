@@ -17,7 +17,7 @@
     "adm-zip": "^0.5.17",
     "electron-updater": "6.8.3",
     "fs": "^0.0.1-security",
-    "undici": "^7.22.0"
+    "undici": "^8.4.1"
   },
   "devDependencies": {
     "@vite-electron-builder/electron-versions": "*",
