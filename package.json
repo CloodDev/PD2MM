@@ -1,7 +1,7 @@
 {
   "name": "pd2mm",
   "description": "Payday 2 Mod Manager built with Electron, Vite, and TypeScript.",
-  "version": "1.7.6",
+  "version": "1.7.7",
   "private": false,
   "type": "module",
   "author": {

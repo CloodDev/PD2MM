@@ -105,40 +105,11 @@ export function registerDownloadHandler(ipcMain: any, helpers: Helpers) {
       for (const item of extractedItems) {
         const itemPath = `${tempExtractPath}/${item}`;
         if (!fs.statSync(itemPath).isDirectory()) { console.log('Skipping non-directory item:', item); continue; }
-        const ensureModsDir = () => { if (!fs.existsSync(`${basePath}/mods`)) fs.mkdirSync(`${basePath}/mods`, { recursive: true }); };
-        const ensureMapsDir = () => { if (!fs.existsSync(`${basePath}/Maps`)) fs.mkdirSync(`${basePath}/Maps`, { recursive: true }); };
-        const ensureOverridesDir = () => { if (!fs.existsSync(`${basePath}/assets/mod_overrides`)) fs.mkdirSync(`${basePath}/assets/mod_overrides`, { recursive: true }); };
+        const ensureDir = (dir: string) => { if (!fs.existsSync(`${basePath}/${dir}`)) fs.mkdirSync(`${basePath}/${dir}`, { recursive: true }); };
         const detected = detectExtractedMod(itemPath, item);
-
-        if (detected.kind === "map") {
-          ensureMapsDir();
-          const dest = `${basePath}/Maps/${item}`;
-          if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-          fs.renameSync(itemPath, dest);
-          helpers.saveModSourceMetadata(dest, sourceMetadata);
-          modInstalled = true;
-        } else if (detected.destination === "mods") {
-          ensureModsDir();
-          const dest = `${basePath}/mods/${item}`;
-          if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-          fs.renameSync(itemPath, dest);
-          helpers.saveModSourceMetadata(dest, sourceMetadata);
-          modInstalled = true;
-        } else if (detected.moveContents) {
-          ensureOverridesDir();
-          const overridesPath = `${basePath}/assets/mod_overrides`;
-          for (const sub of fs.readdirSync(itemPath)) {
-            const src = `${itemPath}/${sub}`;
-            const dest = `${overridesPath}/${sub}`;
-            if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-            fs.renameSync(src, dest);
-            helpers.saveModSourceMetadata(dest, sourceMetadata);
-          }
-          modInstalled = true;
-        } else {
-          ensureOverridesDir();
-          const overridesPath = `${basePath}/assets/mod_overrides`;
-          const dest = `${overridesPath}/${item}`;
+        if (detected){
+          ensureDir(detected?.destination);
+          const dest = `${basePath}/${detected.destination}/${item}`;
           if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
           fs.renameSync(itemPath, dest);
           helpers.saveModSourceMetadata(dest, sourceMetadata);
