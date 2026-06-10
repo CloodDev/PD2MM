@@ -1,7 +1,7 @@
 {
   "name": "pd2mm",
   "description": "Payday 2 Mod Manager built with Electron, Vite, and TypeScript.",
-  "version": "1.7.7",
+  "version": "1.7.8",
   "private": false,
   "type": "module",
   "author": {
@@ -43,8 +43,9 @@
     "electron-builder": "^26.15.3",
     "glob": "^13.0.6",
     "jsdom": "^29.1.1",
-    "vitest": "^4.1.8",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "sharp": "^0.35.0",
+    "vitest": "^4.1.8"
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.61.0"
