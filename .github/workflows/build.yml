@@ -15,6 +15,11 @@ jobs:
           node-version: 23
           cache: npm
       - run: npm ci
+      - name: Install flatpak
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
       - run: npm run build
       - run: npx electron-builder build --linux --publish never --config electron-builder.mjs
         env:
