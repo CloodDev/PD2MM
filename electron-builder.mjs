@@ -19,8 +19,13 @@ export default /** @type import('electron-builder').Configuration */
     releaseType: 'release',
   },
   linux: {
-    target: ['AppImage'],
+    target: ['flatpak'],
     category: 'Utility',
+    syncDesktopName: true,
+  },
+  flatpak: {
+    runtimeVersion: '24.08',
+    baseVersion: '24.08',
   },
   win: {
     target: [{

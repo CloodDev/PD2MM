@@ -16,13 +16,13 @@
     "@vite-electron-builder/renderer": "*",
     "adm-zip": "^0.5.17",
     "electron-updater": "6.8.3",
-    "fs": "^0.0.1-security",
-    "undici": "^7.22.0"
+    "fs": "^0.0.2",
+    "undici": "^8.4.1"
   },
   "devDependencies": {
     "@vite-electron-builder/electron-versions": "*",
-    "electron-devtools-installer": "^3.2.0",
-    "typescript": "5.9.3",
+    "electron-devtools-installer": "^4.0.0",
+    "typescript": "6.0.3",
     "vite": "^8.0.0"
   }
 }

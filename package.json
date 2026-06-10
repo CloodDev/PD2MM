@@ -8,6 +8,7 @@
     "email": "cloodowy@gmail.com",
     "name": "cloodowy"
   },
+  "desktopName": "pd2mm",
   "main": "packages/entry-point.js",
   "workspaces": [
     "packages/*"
@@ -39,7 +40,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/node": "25.9.2",
     "electron": "^42.3.3",
-    "electron-builder": "^26.14.0",
+    "electron-builder": "^26.15.3",
     "glob": "^13.0.6",
     "jsdom": "^29.1.1",
     "vitest": "^4.1.8",
@@ -53,6 +54,6 @@
   },
   "allowScripts": {
     "electron-winstaller@5.4.0": true,
-    "esbuild@0.21.5": true
+    "esbuild": true
   }
 }
