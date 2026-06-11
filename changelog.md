@@ -2,22 +2,32 @@
 
 This changelog is reconstructed from the repository's tagged release history starting at the first 1.0-series tag found in git (`v1.0.1`).
 
-## 1.7.7 - 2026-06-09
+## Unreleased - 2026-06-11
+- fix: change extraction tool check and make titlebar show icon — clooddev
+
+## 1.7.8 - 2026-06-10
+- chore:bump version to 1.7.8 — clooddev
+- fix publishing thing — clooddev
+- republish lock — clooddev
+- feat: Fix (kind of) linux compile and read github actions — clooddev
+- feat: Fix (kind of) linux compile and read github actions — clooddev
+- chore: update changelog for version 1.7.7 and add changelog generator — CloodDev
+- fix: update version and refactor mod detection logic — CloodDev
+
+## 1.7.7 - 2026-06-08
 - Update playwright requirement from ^1.58.2 to ^1.60.0 (#145) — @dependabot[bot]
 - Bump mlly from 1.8.1 to 1.8.2 (#150) — @dependabot[bot]
 - Update electron requirement from ^42.3.2 to ^42.3.3 (#151) — @dependabot[bot]
-- fix: update version and refactor mod detection logic — CloodDev
 - chore: update packages — CloodDev
 - feat: add tests — CloodDev
-
-
-## 1.7.5 - 2026-06-07
-- feat: change how autoupdater works — CloodDev
 - Bump version to 1.7.5 and add changelog generator — CloodDev
 - chore: bump version to 1.7.5 — CloodDev
 - Update electron requirement from ^42.3.2 to ^42.3.3 — dependabot[bot]
 - Bump mlly from 1.8.1 to 1.8.2 — dependabot[bot]
 - Update playwright requirement from ^1.58.2 to ^1.60.0 — dependabot[bot]
+
+## 1.7.5 - 2026-06-07
+- feat: change how autoupdater works — CloodDev
 
 ## 1.7.2 - 2026-06-03
 - chore: update packages — CloodDev
