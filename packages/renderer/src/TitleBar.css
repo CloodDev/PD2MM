@@ -38,8 +38,6 @@
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(139, 211, 255, 0.18), rgba(139, 211, 255, 0.08));
-  border: 1px solid rgba(139, 211, 255, 0.16);
 }
 
 .title-bar-controls {

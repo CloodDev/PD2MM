@@ -15,7 +15,7 @@ import path from "node:path";
 import { shell } from "electron";
 import { request } from "undici";
 import { ipcMain } from "electron";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { json } from "node:stream/consumers";
 import { registerDownloadHandler } from "./modInstaller.js";
 
@@ -77,6 +77,15 @@ const runArchiveCommand = (command: string, args: string[]) =>
       reject(err);
     });
   });
+
+const toolExists = (tool: string): boolean => {
+  try {
+    execSync(`which ${tool} 2>/dev/null`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const extractArchiveOnLinux = async (archiveType: string, archivePath: string, destinationPath: string) => {
   // Prefer explicit handling by file extension when possible
@@ -639,28 +648,42 @@ export async function initApp(initConfig: AppInitConfig) {
         
         // Check available extraction tools
         console.log("\n=== Extraction Tools Check ===");
-        
-        // Check PowerShell
-        console.log("PowerShell: Available (Windows built-in)");
-        
-        // Check 7-Zip
-        const sevenZipPaths = [
-          "C:\\Program Files\\7-Zip\\7z.exe",
-          "C:\\Program Files (x86)\\7-Zip\\7z.exe"
-        ];
-        const sevenZipFound = sevenZipPaths.some(path => fs.existsSync(path));
-        console.log("7-Zip:", sevenZipFound ? "Available" : "Not found");
-        
-        // Check WinRAR
-        const winrarPaths = [
-          "C:\\Program Files\\WinRAR\\WinRAR.exe",
-          "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe"
-        ];
-        const winrarFound = winrarPaths.some(path => fs.existsSync(path));
-        console.log("WinRAR:", winrarFound ? "Available" : "Not found");
-        
-        if (!sevenZipFound && !winrarFound) {
-          console.log("\n⚠ Tip: Install 7-Zip or WinRAR for better archive extraction support");
+
+        if (process.platform === 'win32') {
+          // Check PowerShell
+          console.log("PowerShell: Available (Windows built-in)");
+
+          // Check 7-Zip
+          const sevenZipPaths = [
+            "C:\\Program Files\\7-Zip\\7z.exe",
+            "C:\\Program Files (x86)\\7-Zip\\7z.exe"
+          ];
+          const sevenZipFound = sevenZipPaths.some(path => fs.existsSync(path));
+          console.log("7-Zip:", sevenZipFound ? "Available" : "Not found");
+
+          // Check WinRAR
+          const winrarPaths = [
+            "C:\\Program Files\\WinRAR\\WinRAR.exe",
+            "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe"
+          ];
+          const winrarFound = winrarPaths.some(path => fs.existsSync(path));
+          console.log("WinRAR:", winrarFound ? "Available" : "Not found");
+
+          if (!sevenZipFound && !winrarFound) {
+            console.log("\n⚠ Tip: Install 7-Zip or WinRAR for better archive extraction support");
+          }
+        } else if (process.platform === 'linux') {
+          const linuxTools = ["unzip", "bsdtar", "7z", "7za", "7zr", "unar", "unrar"];
+          for (const tool of linuxTools) {
+            const found = toolExists(tool);
+            console.log(`${tool}: ${found ? "Available" : "Not found"}`);
+          }
+        } else if (process.platform === 'darwin') {
+          const macTools = ["unzip", "bsdtar", "7z", "unar", "unrar"];
+          for (const tool of macTools) {
+            const found = toolExists(tool);
+            console.log(`${tool}: ${found ? "Available" : "Not found"}`);
+          }
         }
         console.log("============================\n");
       }

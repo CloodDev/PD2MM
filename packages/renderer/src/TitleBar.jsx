@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './TitleBar.css';
+import appIcon from '/app-icon.png';
 
 function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -21,7 +22,7 @@ function TitleBar() {
     <div className="title-bar">
       <div className="title-bar-drag-region">
         <div className="title-bar-title">
-          <span className="app-icon">🎮</span>
+          <img className="app-icon" src={appIcon} alt="App Icon" />
           <span>Payday 2 Mod Manager</span>
         </div>
       </div>
