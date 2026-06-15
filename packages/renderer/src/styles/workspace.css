@@ -1,0 +1,210 @@
+/* Workspace Hero */
+.workspace-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(139, 211, 255, 0.14), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(188, 205, 255, 0.12);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px) saturate(115%);
+}
+
+.workspace-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workspace-hero-kicker {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.workspace-hero-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.workspace-hero-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.workspace-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.hero-stat {
+  min-width: 92px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-stat span {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.hero-stat strong {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+/* Download Section */
+.modDownload {
+  width: 100%;
+  margin: 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 26, 40, 0.90), rgba(16, 21, 33, 0.88));
+  border: 1px solid rgba(188, 205, 255, 0.12);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px) saturate(115%);
+}
+
+.download-form {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: stretch;
+}
+
+/* Progress Bar */
+.progress-container {
+  margin-top: var(--spacing-md);
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(188, 205, 255, 0.10);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8bd3ff, #77e0a3);
+  transition: width 0.3s ease;
+  border-radius: var(--radius-sm);
+}
+
+.progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Path Selector */
+.pathSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-elevated);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-bottom: var(--spacing-md);
+}
+
+.pathSelector:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
+}
+
+.pathInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pathInput:focus {
+  outline: none;
+}
+
+/* Feedback messages */
+.successMsg,
+.errorMsg {
+  margin-top: var(--spacing-md);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+}
+
+.successMsg {
+  background: rgba(119, 224, 163, 0.10);
+  border: 1px solid rgba(119, 224, 163, 0.22);
+  color: #bbf7d0;
+}
+
+.successMsg::before {
+  content: '✓';
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.successMsg:empty {
+  display: none;
+}
+
+.errorMsg {
+  background: rgba(255, 127, 143, 0.10);
+  border: 1px solid rgba(255, 127, 143, 0.22);
+  color: #ffd2d8;
+}
+
+.errorMsg::before {
+  content: '⚠️';
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.errorMsg:empty {
+  display: none;
+}
+
+/* Responsive */
+@media (max-width: 1180px) {
+  .workspace-hero {
+    flex-direction: column;
+  }
+
+  .workspace-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
