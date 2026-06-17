@@ -2,7 +2,8 @@
 
 This changelog is reconstructed from the repository's tagged release history starting at the first 1.0-series tag found in git (`v1.0.1`).
 
-## Unreleased - 2026-06-15
+## Unreleased - 2026-06-17
+- Imprv: Change window layout and bump version — clooddev
 - refractor renedere split app into components and modular css :3 — hajtidev
 - chore: remove test-results — clooddev
 - fix: change extraction tool check and make titlebar show icon — clooddev
