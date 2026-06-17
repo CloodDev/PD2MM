@@ -1,3 +1,5 @@
+import '../styles/notifications.css';
+
 function NotificationStack({ notifications }) {
   if (notifications.length === 0) return null;
 

@@ -1,0 +1,9 @@
+.modDownload{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(188, 205, 255, 0.10);
+  background: linear-gradient(135deg, rgba(139, 211, 255, 0.10), rgba(255, 255, 255, 0.02));
+}

@@ -1,7 +1,7 @@
 {
   "name": "pd2mm",
   "description": "Payday 2 Mod Manager built with Electron, Vite, and TypeScript.",
-  "version": "1.7.8",
+  "version": "1.8.0",
   "private": false,
   "type": "module",
   "author": {
@@ -24,6 +24,7 @@
     "publish": "node scripts/publish.mjs",
     "test": "npx playwright test ./tests/e2e.spec.ts",
     "test:unit": "vitest",
+    "bump": "node scripts/bump-version.mjs",
     "test:unit:run": "vitest run",
     "test:unit:watch": "vitest --watch",
     "start": "node packages/dev-mode.js",
@@ -35,20 +36,20 @@
   },
   "devDependencies": {
     "@npmcli/map-workspaces": "6.0.0",
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "25.9.2",
-    "electron": "^42.3.3",
+    "@types/node": "25.9.3",
+    "electron": "^42.4.1",
     "electron-builder": "^26.15.3",
     "glob": "^13.0.6",
     "jsdom": "^29.1.1",
-    "playwright": "^1.60.0",
+    "playwright": "^1.61.0",
     "sharp": "^0.35.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "optionalDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.61.0"
+    "@rollup/rollup-win32-x64-msvc": "^4.62.0"
   },
   "dependencies": {
     "@vite-electron-builder/main": "*"

@@ -1,3 +1,5 @@
+import '../styles/mods.css';
+
 function ModList({ modList, selected, onSelect, searchTerm, onSearchChange, getSidebarItemStyle }) {
   const regularMods = modList.filter(
     (mod) => mod.type === 'mod' && mod.name.toLowerCase().includes(searchTerm.toLowerCase())

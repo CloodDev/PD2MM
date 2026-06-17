@@ -4,9 +4,6 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import './styles/variables.css';
 import './styles/layout.css';
 import './styles/components.css';
-import './styles/mods.css';
-import './styles/notifications.css';
-import './styles/workspace.css';
 
 // Components
 import TitleBar from './TitleBar';
@@ -314,9 +311,9 @@ function App() {
       title: 'Downloading Mod',
       body: downloadProgress.status === 'fetching' ? 'Fetching mod information...'
         : downloadProgress.status === 'downloading' ? `Downloading... ${Math.round(downloadProgress.progress || 0)}%`
-        : downloadProgress.status === 'extracting' ? 'Extracting archive...'
-        : downloadProgress.status === 'installing' ? 'Installing mod...'
-        : 'Preparing download...',
+          : downloadProgress.status === 'extracting' ? 'Extracting archive...'
+            : downloadProgress.status === 'installing' ? 'Installing mod...'
+              : 'Preparing download...',
       progress: downloadProgress.progress,
     } : null,
     appUpdateStatusText && appUpdateStatus ? {
@@ -326,8 +323,8 @@ function App() {
       body: appUpdateStatusText,
       actions: appUpdateStatus.status === 'available' ? [{ label: 'Download', onClick: handleDownloadAppUpdate }]
         : appUpdateStatus.status === 'downloaded' ? [{ label: 'Install & Restart', onClick: handleInstallAppUpdate }]
-        : (appUpdateStatus.status === 'error' || appUpdateStatus.status === 'not-available') ? [{ label: 'Check Again', onClick: handleCheckForAppUpdate }]
-        : [],
+          : (appUpdateStatus.status === 'error' || appUpdateStatus.status === 'not-available') ? [{ label: 'Check Again', onClick: handleCheckForAppUpdate }]
+            : [],
     } : null,
     successMessage ? { key: 'success', tone: 'success', title: 'Success', body: successMessage } : null,
     errorMessage ? { key: 'error', tone: 'danger', title: 'Error', body: errorMessage } : null,
@@ -500,20 +497,10 @@ function App() {
 
         <div className="main-content">
           <div className="content-header">
-            <div className="content-header-copy">
-              <h1 className="content-title">PD2MM</h1>
-            </div>
+            <WorkspaceHero configuredPath={configuredPath} totalMods={modList.length} enabledMods={enabledMods} />
             <div className="content-header-actions">
               <button
-                className="action-button header-action-button"
-                onClick={handleDirectorySelect}
-                title="Select Game Folder"
-                aria-label="Select Game Folder"
-              >
-                📁
-              </button>
-              <button
-                className="action-button success header-action-button"
+                className="action-button success header-action-button launchButton"
                 onClick={handleLaunchGame}
                 disabled={isLaunchingGame}
                 title="Launch Game"
@@ -521,25 +508,29 @@ function App() {
               >
                 {isLaunchingGame ? '⏳' : '🚀'}
               </button>
-              <button
-                className="action-button secondary header-action-button"
-                onClick={handleCheckForAppUpdate}
-                disabled={isCheckingAppUpdate}
-                title="Check App Update"
-                aria-label="Check App Update"
-              >
-                {isCheckingAppUpdate ? '⏳' : '⬆️'}
-              </button>
+              <div className="sideButtonContainer">
+                <button
+                  className="action-button header-action-button sideButtons"
+                  onClick={handleDirectorySelect}
+                  title="Select Game Folder"
+                  aria-label="Select Game Folder"
+                >
+                  📁
+                </button>
+                <button
+                  className="action-button secondary header-action-button sideButtons"
+                  onClick={handleCheckForAppUpdate}
+                  disabled={isCheckingAppUpdate}
+                  title="Check App Update"
+                  aria-label="Check App Update"
+                >
+                  {isCheckingAppUpdate ? '⏳' : '⬆️'}
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="content-body">
-            <WorkspaceHero
-              configuredPath={configuredPath}
-              totalMods={modList.length}
-              enabledMods={enabledMods}
-            />
-
             <ModDownloader
               modLink={modLink}
               onLinkChange={setModLink}

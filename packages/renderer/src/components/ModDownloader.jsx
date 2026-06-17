@@ -1,3 +1,5 @@
+import "../styles/downloader.css"
+
 function ModDownloader({ modLink, onLinkChange, onDownload, isDownloading }) {
   return (
     <div className="modDownload">

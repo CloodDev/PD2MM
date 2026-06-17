@@ -1,21 +1,22 @@
+import "../styles/workspace.css"
+
 function WorkspaceHero({ configuredPath, totalMods, enabledMods }) {
   return (
     <div className="workspace-hero">
-      <div className="workspace-hero-copy">
-        <span className="workspace-hero-kicker">Current setup</span>
+      <div className="workspace-hero-config">
+        <span className="workspace-hero-eyebrow">Selected Path</span>
         <div className="workspace-hero-title">{configuredPath}</div>
-        <div className="workspace-hero-subtitle">
-          Use the downloader, then manage installs from the list below.
-        </div>
       </div>
       <div className="workspace-hero-stats">
-        <div className="hero-stat">
-          <span>Mods</span>
-          <strong>{totalMods}</strong>
-        </div>
-        <div className="hero-stat">
-          <span>Active</span>
-          <strong>{enabledMods}</strong>
+        <span className="workspace-hero-eyebrow">Mods Enabled</span>
+        <div className="hero-stat-container">
+          <div className="hero-stat">
+            <strong>{totalMods}</strong>
+          </div>
+          /
+          <div className="hero-stat">
+            <strong>{enabledMods}</strong>
+          </div>
         </div>
       </div>
     </div>

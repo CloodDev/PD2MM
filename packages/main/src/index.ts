@@ -20,7 +20,13 @@ import { json } from "node:stream/consumers";
 import { registerDownloadHandler } from "./modInstaller.js";
 
 const DISABLED_MODS_DIR = ".pd2mm_disabled";
-const MOD_UTILITY_FOLDERS = new Set(["saves", "logs", "downloads", "base", DISABLED_MODS_DIR]);
+const MOD_UTILITY_FOLDERS = new Set([
+  "saves",
+  "logs",
+  "downloads",
+  "base",
+  DISABLED_MODS_DIR,
+]);
 const appAutoUpdater = autoUpdater();
 const electronAutoUpdater = appAutoUpdater.getAutoUpdater();
 const settingsDirectory = () => path.join(app.getPath("userData"), "PD2MM");
@@ -67,7 +73,9 @@ const runArchiveCommand = (command: string, args: string[]) =>
 
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`${command} extraction failed (code ${code}): ${stderr}`));
+        reject(
+          new Error(`${command} extraction failed (code ${code}): ${stderr}`),
+        );
       } else {
         resolve();
       }
@@ -87,8 +95,11 @@ const toolExists = (tool: string): boolean => {
   }
 };
 
-const extractArchiveOnLinux = async (archiveType: string, archivePath: string, destinationPath: string) => {
-  // Prefer explicit handling by file extension when possible
+const extractArchiveOnLinux = async (
+  archiveType: string,
+  archivePath: string,
+  destinationPath: string,
+) => {
   const lower = archivePath.toLowerCase();
 
   const attemptsFor = (pairs: Array<[string, string[]]>) => {
@@ -161,12 +172,18 @@ const extractArchiveOnLinux = async (archiveType: string, archivePath: string, d
   }
 };
 
-const moveDirectoryReplacingIfExists = (sourcePath: string, destinationPath: string) => {
+const moveDirectoryReplacingIfExists = (
+  sourcePath: string,
+  destinationPath: string,
+) => {
   if (!fs.existsSync(sourcePath)) {
     return false;
   }
 
-  const destinationParent = destinationPath.substring(0, destinationPath.lastIndexOf("/"));
+  const destinationParent = destinationPath.substring(
+    0,
+    destinationPath.lastIndexOf("/"),
+  );
   ensureDirectory(destinationParent);
 
   if (fs.existsSync(destinationPath)) {
@@ -200,7 +217,9 @@ type ModWorkshopFile = {
   download_url?: string;
 };
 
-const pickLatestModWorkshopFile = (files: ModWorkshopFile[]): ModWorkshopFile | null => {
+const pickLatestModWorkshopFile = (
+  files: ModWorkshopFile[],
+): ModWorkshopFile | null => {
   if (!files.length) {
     return null;
   }
@@ -210,14 +229,19 @@ const pickLatestModWorkshopFile = (files: ModWorkshopFile[]): ModWorkshopFile | 
     .filter((entry) => Number.isFinite(entry.id) && entry.id > 0);
 
   if (filesWithNumericId.length > 0) {
-    filesWithNumericId.sort((firstEntry, secondEntry) => secondEntry.id - firstEntry.id);
+    filesWithNumericId.sort(
+      (firstEntry, secondEntry) => secondEntry.id - firstEntry.id,
+    );
     return filesWithNumericId[0]?.file ?? null;
   }
 
   const candidates = [...files].sort((firstFile, secondFile) => {
     const firstVersion = String(firstFile.version ?? "");
     const secondVersion = String(secondFile.version ?? "");
-    const versionComparison = compareVersionStrings(secondVersion, firstVersion);
+    const versionComparison = compareVersionStrings(
+      secondVersion,
+      firstVersion,
+    );
     if (versionComparison !== 0) {
       return versionComparison;
     }
@@ -249,9 +273,13 @@ const normalizeModColor = (value: unknown): string | undefined => {
 
   if (numericParts.length >= 3) {
     const channels = numericParts.slice(0, 3);
-    const shouldScaleFromUnitRange = channels.every((part) => part >= 0 && part <= 1);
+    const shouldScaleFromUnitRange = channels.every(
+      (part) => part >= 0 && part <= 1,
+    );
     const normalizedChannels = channels.map((part) => {
-      const scaled = shouldScaleFromUnitRange ? Math.round(part * 255) : Math.round(part);
+      const scaled = shouldScaleFromUnitRange
+        ? Math.round(part * 255)
+        : Math.round(part);
       return Math.max(0, Math.min(255, scaled));
     });
 
@@ -283,16 +311,27 @@ const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
         version: typedParsed.version,
         author: typedParsed.author,
         image: typedParsed.image,
-        color: normalizeModColor(typedParsed.color || typedParsed.backgroundColor || typedParsed.background_color || typedParsed.bgcolor || typedParsed.bgColor),
+        color: normalizeModColor(
+          typedParsed.color ||
+            typedParsed.backgroundColor ||
+            typedParsed.background_color ||
+            typedParsed.bgcolor ||
+            typedParsed.bgColor,
+        ),
       };
     }
   } catch {
     // Fall through to tolerant parser
   }
 
-  const content = rawContent.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const content = rawContent
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
   const extractValue = (key: string): string | undefined => {
-    const keyRegex = new RegExp(`[\"']?${key}[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']`, "i");
+    const keyRegex = new RegExp(
+      `[\"']?${key}[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']`,
+      "i",
+    );
     const match = content.match(keyRegex);
     return match?.[1];
   };
@@ -302,24 +341,40 @@ const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
     version: extractValue("version"),
     author: extractValue("author"),
     image: extractValue("image"),
-    color: normalizeModColor(extractValue("color") || extractValue("backgroundColor") || extractValue("background_color") || extractValue("bgcolor") || extractValue("bgColor")),
+    color: normalizeModColor(
+      extractValue("color") ||
+        extractValue("backgroundColor") ||
+        extractValue("background_color") ||
+        extractValue("bgcolor") ||
+        extractValue("bgColor"),
+    ),
   };
 
   const hasAnyValue = Object.values(fallback).some((value) => Boolean(value));
   return hasAnyValue ? fallback : null;
 };
 
-const getModSourceMetadataPath = (modPath: string) => `${modPath}/${MOD_SOURCE_METADATA_FILE}`;
+const getModSourceMetadataPath = (modPath: string) =>
+  `${modPath}/${MOD_SOURCE_METADATA_FILE}`;
 
-const saveModSourceMetadata = (modPath: string, metadata: Pd2mmModSourceMetadata) => {
+const saveModSourceMetadata = (
+  modPath: string,
+  metadata: Pd2mmModSourceMetadata,
+) => {
   try {
-    fs.writeFileSync(getModSourceMetadataPath(modPath), JSON.stringify(metadata, null, 2), "utf8");
+    fs.writeFileSync(
+      getModSourceMetadataPath(modPath),
+      JSON.stringify(metadata, null, 2),
+      "utf8",
+    );
   } catch (error) {
     console.warn("Failed to save mod source metadata:", error);
   }
 };
 
-const loadModSourceMetadata = (modPath: string): Pd2mmModSourceMetadata | null => {
+const loadModSourceMetadata = (
+  modPath: string,
+): Pd2mmModSourceMetadata | null => {
   try {
     const metadataPath = getModSourceMetadataPath(modPath);
     if (!fs.existsSync(metadataPath)) {
@@ -365,13 +420,17 @@ const extractModWorkshopId = (value: string | undefined): string | null => {
   return null;
 };
 
-const tryExtractModWorkshopIdFromModTxt = (rawContent: string): string | null => {
+const tryExtractModWorkshopIdFromModTxt = (
+  rawContent: string,
+): string | null => {
   const urlMatch = rawContent.match(/modworkshop\.net\/mod\/(\d+)/i);
   if (urlMatch?.[1]) {
     return urlMatch[1];
   }
 
-  const hostIdMatch = rawContent.match(/host["']?\s*[:=]\s*["']modworkshop["'][\s\S]{0,240}?id["']?\s*[:=]\s*["']?(\d+)/i);
+  const hostIdMatch = rawContent.match(
+    /host["']?\s*[:=]\s*["']modworkshop["'][\s\S]{0,240}?id["']?\s*[:=]\s*["']?(\d+)/i,
+  );
   if (hostIdMatch?.[1]) {
     return hostIdMatch[1];
   }
@@ -379,14 +438,19 @@ const tryExtractModWorkshopIdFromModTxt = (rawContent: string): string | null =>
   try {
     const parsed = JSON.parse(rawContent);
     if (parsed && typeof parsed === "object") {
-      const updates = (parsed as {updates?: unknown}).updates;
+      const updates = (parsed as { updates?: unknown }).updates;
       if (Array.isArray(updates)) {
         for (const entry of updates) {
           if (!entry || typeof entry !== "object") {
             continue;
           }
 
-          const updateEntry = entry as {host?: string; id?: string | number; page?: string; url?: string};
+          const updateEntry = entry as {
+            host?: string;
+            id?: string | number;
+            page?: string;
+            url?: string;
+          };
           const host = updateEntry.host?.toLowerCase();
           if (host && !host.includes("modworkshop")) {
             continue;
@@ -397,7 +461,9 @@ const tryExtractModWorkshopIdFromModTxt = (rawContent: string): string | null =>
             return fromId;
           }
 
-          const fromUrl = extractModWorkshopId(updateEntry.url) || extractModWorkshopId(updateEntry.page);
+          const fromUrl =
+            extractModWorkshopId(updateEntry.url) ||
+            extractModWorkshopId(updateEntry.page);
           if (fromUrl) {
             return fromUrl;
           }
@@ -431,13 +497,18 @@ const getInstalledModVersion = (modPath: string): string => {
 
   return "Unknown";
 };
-
-const compareVersionStrings = (currentVersion: string, latestVersion: string): number => {
+const compareVersionStrings = (
+  currentVersion: string,
+  latestVersion: string,
+): number => {
   const currentParts = currentVersion.match(/\d+/g)?.map(Number) ?? [];
   const latestParts = latestVersion.match(/\d+/g)?.map(Number) ?? [];
 
   if (currentParts.length === 0 || latestParts.length === 0) {
-    return currentVersion.localeCompare(latestVersion, undefined, {numeric: true, sensitivity: "base"});
+    return currentVersion.localeCompare(latestVersion, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
   }
 
   const maxLength = Math.max(currentParts.length, latestParts.length);
@@ -460,7 +531,9 @@ const normalizeVersion = (version: unknown): string => {
   return normalized.length > 0 ? normalized : "Unknown";
 };
 
-const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | null> => {
+const getModWorkshopFiles = async (
+  modId: string,
+): Promise<ModWorkshopFile[] | null> => {
   const apiURL = `https://api.modworkshop.net/mods/${modId}/files`;
   const { statusCode, body } = await request(apiURL, {
     headers: {
@@ -472,17 +545,17 @@ const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | n
     return null;
   }
 
-  const response = await body.json() as unknown;
+  const response = (await body.json()) as unknown;
   if (!response || typeof response !== "object") {
     return null;
   }
 
-  const typedResponse = response as {data?: unknown};
+  const typedResponse = response as { data?: unknown };
   if (Array.isArray(typedResponse.data)) {
     return typedResponse.data as ModWorkshopFile[];
   }
 
-  const nestedData = typedResponse.data as {files?: unknown} | undefined;
+  const nestedData = typedResponse.data as { files?: unknown } | undefined;
   if (nestedData && Array.isArray(nestedData.files)) {
     return nestedData.files as ModWorkshopFile[];
   }
@@ -492,7 +565,8 @@ const getModWorkshopFiles = async (modId: string): Promise<ModWorkshopFile[] | n
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getUpdateErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+const getUpdateErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 const sendUpdateStatus = (
   status: string,
@@ -500,12 +574,19 @@ const sendUpdateStatus = (
   progress: number | null = null,
   error: string | null = null,
 ) => {
-  const window = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed());
+  const window = BrowserWindow.getAllWindows().find(
+    (candidate) => !candidate.isDestroyed(),
+  );
   if (!window || window.webContents.isDestroyed()) {
     return false;
   }
 
-  window.webContents.send("update:status", { status, version, progress, error });
+  window.webContents.send("update:status", {
+    status,
+    version,
+    progress,
+    error,
+  });
   return true;
 };
 
@@ -564,12 +645,17 @@ const runUpdateCheck = async (currentVersion: string, autoDownload = false) => {
   return {
     success: true,
     skipped: false,
-    hasUpdate: Boolean(result && (result as {hasUpdate?: boolean}).hasUpdate),
-    version: (result as {version?: string | null} | null)?.version ?? null,
-    message: (result as {hasUpdate?: boolean; version?: string | null} | null)?.hasUpdate
-      ? `Update available${(result as {version?: string | null} | null)?.version ? `: ${(result as {version?: string | null} | null)?.version}` : ""}`
+    hasUpdate: Boolean(result && (result as { hasUpdate?: boolean }).hasUpdate),
+    version: (result as { version?: string | null } | null)?.version ?? null,
+    message: (result as { hasUpdate?: boolean; version?: string | null } | null)
+      ?.hasUpdate
+      ? `Update available${(result as { version?: string | null } | null)?.version ? `: ${(result as { version?: string | null } | null)?.version}` : ""}`
       : "No updates available.",
   };
+};
+
+const getModImageFromMWH = async (modId: string): Promise<string | null> => {
+  return null;
 };
 
 const getLatestModWorkshopFileWithRetry = async (
@@ -594,7 +680,7 @@ const getLatestModWorkshopFileWithRetry = async (
 
 export async function initApp(initConfig: AppInitConfig) {
   const deepLinkHandler = createDeepLinkHandler();
-  
+
   const moduleRunner = createModuleRunner()
     .init(disallowMultipleAppInstance())
     .init(deepLinkHandler)
@@ -602,7 +688,7 @@ export async function initApp(initConfig: AppInitConfig) {
       createWindowManagerModule({
         initConfig,
         openDevTools: import.meta.env.DEV,
-      })
+      }),
     )
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: true }))
@@ -612,9 +698,11 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(
       allowInternalOrigins(
         new Set(
-          initConfig.renderer instanceof URL ? [initConfig.renderer.origin] : []
-        )
-      )
+          initConfig.renderer instanceof URL
+            ? [initConfig.renderer.origin]
+            : [],
+        ),
+      ),
     )
     .init(
       allowExternalUrls(
@@ -631,54 +719,66 @@ export async function initApp(initConfig: AppInitConfig) {
                 "https://www.typescriptlang.org",
                 "https://vuejs.org",
               ]
-            : []
-        )
-      )
+            : [],
+        ),
+      ),
     )
     .init({
       enable: () => {
         console.log("App is ready");
         registerUpdateStatusListeners();
-        
+
         // Make deep link handler available to IPC handlers
         ipcMain.handle("handle-deep-link", async (event, url: string) => {
-          console.log('Deep link requested from renderer:', url);
+          console.log("Deep link requested from renderer:", url);
           deepLinkHandler.handleDeepLink(url);
         });
-        
+
         // Check available extraction tools
         console.log("\n=== Extraction Tools Check ===");
 
-        if (process.platform === 'win32') {
+        if (process.platform === "win32") {
           // Check PowerShell
           console.log("PowerShell: Available (Windows built-in)");
 
           // Check 7-Zip
           const sevenZipPaths = [
             "C:\\Program Files\\7-Zip\\7z.exe",
-            "C:\\Program Files (x86)\\7-Zip\\7z.exe"
+            "C:\\Program Files (x86)\\7-Zip\\7z.exe",
           ];
-          const sevenZipFound = sevenZipPaths.some(path => fs.existsSync(path));
+          const sevenZipFound = sevenZipPaths.some((path) =>
+            fs.existsSync(path),
+          );
           console.log("7-Zip:", sevenZipFound ? "Available" : "Not found");
 
           // Check WinRAR
           const winrarPaths = [
             "C:\\Program Files\\WinRAR\\WinRAR.exe",
-            "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe"
+            "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe",
           ];
-          const winrarFound = winrarPaths.some(path => fs.existsSync(path));
+          const winrarFound = winrarPaths.some((path) => fs.existsSync(path));
           console.log("WinRAR:", winrarFound ? "Available" : "Not found");
 
           if (!sevenZipFound && !winrarFound) {
-            console.log("\n⚠ Tip: Install 7-Zip or WinRAR for better archive extraction support");
+            console.log(
+              "\n⚠ Tip: Install 7-Zip or WinRAR for better archive extraction support",
+            );
           }
-        } else if (process.platform === 'linux') {
-          const linuxTools = ["unzip", "bsdtar", "7z", "7za", "7zr", "unar", "unrar"];
+        } else if (process.platform === "linux") {
+          const linuxTools = [
+            "unzip",
+            "bsdtar",
+            "7z",
+            "7za",
+            "7zr",
+            "unar",
+            "unrar",
+          ];
           for (const tool of linuxTools) {
             const found = toolExists(tool);
             console.log(`${tool}: ${found ? "Available" : "Not found"}`);
           }
-        } else if (process.platform === 'darwin') {
+        } else if (process.platform === "darwin") {
           const macTools = ["unzip", "bsdtar", "7z", "unar", "unrar"];
           for (const tool of macTools) {
             const found = toolExists(tool);
@@ -686,7 +786,7 @@ export async function initApp(initConfig: AppInitConfig) {
           }
         }
         console.log("============================\n");
-      }
+      },
     });
   await moduleRunner;
 }
@@ -699,7 +799,7 @@ ipcMain.handle("select-directory", async (event, operation) => {
   const result = await dialog.showOpenDialog({
     properties: properties,
   });
-  if (result.filePaths[0].endsWith("mods")){
+  if (result.filePaths[0].endsWith("mods")) {
     result.filePaths[0] = result.filePaths[0].slice(0, -5);
   }
   if (result.canceled) {
@@ -714,7 +814,12 @@ ipcMain.handle("list-mods", async (event, operation) => {
     return [];
   }
   try {
-    const allMods: Array<{name: string, type: string, enabled: boolean, color?: string}> = [];
+    const allMods: Array<{
+      name: string;
+      type: string;
+      enabled: boolean;
+      color?: string;
+    }> = [];
     const discoveredMods = new Set<string>();
 
     const readModColor = (modPath: string) => {
@@ -732,7 +837,12 @@ ipcMain.handle("list-mods", async (event, operation) => {
       }
     };
 
-    const addModEntry = (name: string, type: string, enabled: boolean, color?: string) => {
+    const addModEntry = (
+      name: string,
+      type: string,
+      enabled: boolean,
+      color?: string,
+    ) => {
       const key = `${type}:${name}`;
       if (discoveredMods.has(key)) {
         return;
@@ -741,7 +851,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
       discoveredMods.add(key);
       allMods.push({ name, type, enabled, color });
     };
-    
+
     // Check regular mods folder
     const modsPath = operation + "/mods";
     if (fs.existsSync(modsPath)) {
@@ -806,7 +916,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
         addModEntry(map, "map", false, readModColor(mapPath));
       });
     }
-    
+
     // Check mod_overrides folder
     const modOverridesPath = operation + "/assets/mod_overrides";
     if (fs.existsSync(modOverridesPath)) {
@@ -826,7 +936,10 @@ ipcMain.handle("list-mods", async (event, operation) => {
     }
 
     // Check disabled overrides
-    const disabledOverridesPath = getDisabledModsContainerPath(operation, "override");
+    const disabledOverridesPath = getDisabledModsContainerPath(
+      operation,
+      "override",
+    );
     if (fs.existsSync(disabledOverridesPath)) {
       const disabledOverrides = fs.readdirSync(disabledOverridesPath);
       disabledOverrides.forEach((mod) => {
@@ -838,7 +951,7 @@ ipcMain.handle("list-mods", async (event, operation) => {
         addModEntry(mod, "override", false, readModColor(modPath));
       });
     }
-    
+
     return allMods;
   } catch (err) {
     console.error("Error listing mods:", err);
@@ -853,7 +966,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
     const modPath = isEnabled
       ? getActiveModPath(operation.basePath, modData.type, modData.name)
       : getDisabledModPath(operation.basePath, modData.type, modData.name);
-    
+
     // Try to read mod.txt
     let modTextPath = modPath + "/mod.txt";
     if (fs.existsSync(modTextPath)) {
@@ -863,17 +976,22 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       if (!mod) {
         throw new Error("Could not parse mod.txt metadata");
       }
-      
       let img = undefined;
       if (mod.image) {
         let imgPath = modPath + "/" + mod.image;
         imgPath = imgPath.replace(/\\/g, "/");
-        
+
         if (fs.existsSync(imgPath)) {
           let imageData = fs.readFileSync(imgPath);
-          let base64Image = Buffer.from(imageData).toString('base64');
+          let base64Image = Buffer.from(imageData).toString("base64");
           img = `data:image/png;base64,${base64Image}`;
         }
+      } else {
+        getModImageFromMWH(loadModSourceMetadata(modPath)?.modId ?? "").then(
+          (imageUrl) => {
+            img = imageUrl || undefined;
+          },
+        );
       }
 
       return {
@@ -884,7 +1002,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
         color: mod.color || undefined,
       };
     }
-    
+
     // Try main.xml for BeardLib or map mods
     let mainXmlPath = modPath + "/main.xml";
     if (fs.existsSync(mainXmlPath)) {
@@ -892,22 +1010,22 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       const nameMatch = xmlText.match(/<name>([^<]+)<\/name>/);
       const authorMatch = xmlText.match(/<author>([^<]+)<\/author>/);
       const versionMatch = xmlText.match(/<version>([^<]+)<\/version>/);
-      
+
       return {
         name: nameMatch ? nameMatch[1] : modData.name,
         author: authorMatch ? authorMatch[1] : "Unknown",
         version: versionMatch ? versionMatch[1] : "Unknown",
         color: undefined,
-        image: undefined
+        image: undefined,
       };
     }
-    
+
     return {
       name: modData.name,
       author: "Unknown",
       version: "Unknown",
       color: undefined,
-      image: undefined
+      image: undefined,
     };
   } catch (err) {
     console.error("Error reading mod data:", err);
@@ -916,7 +1034,7 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       author: "Unknown",
       version: "Unknown",
       color: undefined,
-      image: undefined
+      image: undefined,
     };
   }
 });
@@ -963,7 +1081,10 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
 
     const latestFile = await getLatestModWorkshopFileWithRetry(modId);
     if (!latestFile) {
-      return { success: false, error: "Could not determine latest file from ModWorkshop" };
+      return {
+        success: false,
+        error: "Could not determine latest file from ModWorkshop",
+      };
     }
 
     const latestVersion = normalizeVersion(latestFile.version);
@@ -974,7 +1095,9 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
       hasUpdate = compareVersionStrings(currentVersion, latestVersion) < 0;
     } else {
       const latestFileId = Number(latestFile.id ?? 0);
-      const installedFileId = Number(installedSourceMetadata?.latestFileId ?? 0);
+      const installedFileId = Number(
+        installedSourceMetadata?.latestFileId ?? 0,
+      );
       if (latestFileId > 0 && installedFileId > 0) {
         hasUpdate = latestFileId > installedFileId;
       } else if (latestFileId > 0 && installedFileId === 0) {
@@ -982,7 +1105,9 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
       }
     }
 
-    console.log(`[Mod Update Check] Mod ID: ${modId}, Current Version: ${currentVersion}, Latest Version: ${latestVersion}, Has Update: ${hasUpdate}`);
+    console.log(
+      `[Mod Update Check] Mod ID: ${modId}, Current Version: ${currentVersion}, Latest Version: ${latestVersion}, Has Update: ${hasUpdate}`,
+    );
     return {
       success: true,
       supported: true,
@@ -1011,28 +1136,44 @@ ipcMain.handle("open-mod-folder", async (event, operation) => {
 
 ipcMain.handle("remove-mod", async (event, operation) => {
   try {
-    const activePath = getActiveModPath(operation.basePath, operation.type, operation.name);
-    const disabledPath = getDisabledModPath(operation.basePath, operation.type, operation.name);
-    const modPath = typeof operation.enabled === "boolean"
-      ? (operation.enabled ? activePath : disabledPath)
-      : (fs.existsSync(activePath) ? activePath : disabledPath);
-    
+    const activePath = getActiveModPath(
+      operation.basePath,
+      operation.type,
+      operation.name,
+    );
+    const disabledPath = getDisabledModPath(
+      operation.basePath,
+      operation.type,
+      operation.name,
+    );
+    const modPath =
+      typeof operation.enabled === "boolean"
+        ? operation.enabled
+          ? activePath
+          : disabledPath
+        : fs.existsSync(activePath)
+          ? activePath
+          : disabledPath;
+
     console.log(`Removing mod: ${operation.name} (${operation.type})`);
     console.log(`Path: ${modPath}`);
-    
+
     if (!fs.existsSync(modPath)) {
       console.error("Mod folder not found:", modPath);
       return { success: false, error: "Mod folder not found" };
     }
-    
+
     // Recursively delete the mod directory
     fs.rmSync(modPath, { recursive: true, force: true });
-    
+
     console.log("✓ Mod removed successfully");
     return { success: true };
   } catch (err) {
     console.error("Error removing mod:", err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 });
 
@@ -1063,7 +1204,10 @@ ipcMain.handle("toggle-mod-enabled", async (event, operation) => {
     return { success: true };
   } catch (err) {
     console.error("Error toggling mod enabled state:", err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 });
 
@@ -1085,7 +1229,6 @@ ipcMain.handle("load-settings", async (event, operation) => {
     let settings = fs.readFileSync(settingsFilePath(), "utf8");
     return settings;
   } catch (err) {
-
     return false;
   }
 });
@@ -1104,17 +1247,21 @@ ipcMain.handle("launch-game", async (event, operation) => {
     await shell.openExternal(steamLaunchUrl);
     return { success: true, method: "steam" };
   } catch (steamError) {
-    const basePath = typeof operation?.basePath === "string" ? operation.basePath : "";
-    const exeCandidates = process.platform === "win32"
-      ? [path.join(basePath, "payday2_win32_release.exe")]
-      : [
-          path.join(basePath, "payday2_release"),
-          path.join(basePath, "payday2.x86_64"),
-          path.join(basePath, "payday2_linux"),
-        ];
+    const basePath =
+      typeof operation?.basePath === "string" ? operation.basePath : "";
+    const exeCandidates =
+      process.platform === "win32"
+        ? [path.join(basePath, "payday2_win32_release.exe")]
+        : [
+            path.join(basePath, "payday2_release"),
+            path.join(basePath, "payday2.x86_64"),
+            path.join(basePath, "payday2_linux"),
+          ];
 
     try {
-      const exePath = exeCandidates.find(candidate => candidate && fs.existsSync(candidate));
+      const exePath = exeCandidates.find(
+        (candidate) => candidate && fs.existsSync(candidate),
+      );
       if (exePath) {
         const child = spawn(exePath, [], {
           detached: true,
@@ -1132,7 +1279,10 @@ ipcMain.handle("launch-game", async (event, operation) => {
 
     return {
       success: false,
-      error: steamError instanceof Error ? steamError.message : "Unable to launch PAYDAY 2.",
+      error:
+        steamError instanceof Error
+          ? steamError.message
+          : "Unable to launch PAYDAY 2.",
     };
   }
 });
