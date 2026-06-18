@@ -190,10 +190,22 @@ function ModList({
     <div className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-header-copy">
-          <span className="sidebar-eyebrow">Library</span>
-          <span className="sidebar-title">Installed Mods</span>
+          <div className="collection-manager-wrapper">
+            <CollectionManager
+              collections={collections}
+              activeCollectionId={activeCollectionId}
+              modList={modList}
+              onSaveCollection={onSaveCollection}
+              onApplyCollection={onApplyCollection}
+              onDeleteCollection={onDeleteCollection}
+              isApplying={isApplyingCollection}
+              pendingMods={pendingMods}
+              onClearPending={() => setPendingMods(new Set())}
+              onDeselectCollection={onDeselectCollection}
+              className="collection-manager"
+            />
+          </div>
         </div>
-        <div className="sidebar-chip">{modList.length} loaded</div>
       </div>
 
       <div className="sidebar-section">
@@ -207,20 +219,6 @@ function ModList({
           />
         </div>
 
-        <div className="collection-manager-wrapper">
-          <CollectionManager
-            collections={collections}
-            activeCollectionId={activeCollectionId}
-            modList={modList}
-            onSaveCollection={onSaveCollection}
-            onApplyCollection={onApplyCollection}
-            onDeleteCollection={onDeleteCollection}
-            isApplying={isApplyingCollection}
-            pendingMods={pendingMods}
-            onClearPending={() => setPendingMods(new Set())}
-            onDeselectCollection={onDeselectCollection}
-          />
-        </div>
 
         {modList.length > 0 ? (
           <>

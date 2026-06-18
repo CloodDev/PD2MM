@@ -61,6 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  width: 100%;
 }
 
 .sidebar-eyebrow,
@@ -216,5 +217,5 @@
 
 /* Collection manager wrapper in sidebar */
 .collection-manager-wrapper {
-  margin-bottom: 14px;
+  min-width: 100%;
 }

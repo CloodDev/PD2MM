@@ -21,6 +21,7 @@
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
   text-align: left;
+  margin: 0 auto 0 auto;
 }
 
 .collection-toggle:hover {
@@ -134,6 +135,7 @@
   font-size: 13px;
   outline: none;
   transition: border-color var(--transition);
+  min-width: 50%;
 }
 
 .collection-name-input:focus {
