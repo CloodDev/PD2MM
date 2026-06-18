@@ -1,0 +1,128 @@
+/* ─── Right-click context menu ─── */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 220px;
+  max-width: 260px;
+  background: linear-gradient(180deg, rgba(22, 28, 44, 0.98), rgba(16, 21, 33, 0.98));
+  border: 1px solid rgba(188, 205, 255, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px) saturate(140%);
+  overflow: hidden;
+  animation: ctxFadeIn 0.12s ease;
+  padding: 4px 0;
+}
+
+@keyframes ctxFadeIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ctx-menu-header {
+  padding: 10px 14px 8px;
+}
+
+.ctx-menu-mod-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  letter-spacing: 0.01em;
+}
+
+.ctx-menu-divider {
+  height: 1px;
+  background: rgba(188, 205, 255, 0.08);
+  margin: 3px 0;
+}
+
+.ctx-menu-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 6px 14px 3px;
+}
+
+.ctx-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctx-menu-item:hover {
+  background: rgba(139, 211, 255, 0.10);
+  color: var(--text-primary);
+}
+
+.ctx-menu-item.ctx-item-remove {
+  color: var(--danger-color);
+  opacity: 0.85;
+}
+
+.ctx-menu-item.ctx-item-remove:hover {
+  background: rgba(255, 127, 143, 0.10);
+  color: var(--danger-color);
+  opacity: 1;
+}
+
+/* ─── Mod item indicators ─── */
+
+/* Small dot on right side of mod row */
+.mod-collection-dot,
+.mod-pending-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mod-collection-dot {
+  background: var(--primary-color);
+  box-shadow: 0 0 5px rgba(139, 211, 255, 0.6);
+}
+
+.mod-pending-dot {
+  background: #f5c842;
+  box-shadow: 0 0 5px rgba(245, 200, 66, 0.6);
+}
+
+/* When a collection is active, mods NOT in it are dimmed */
+.mod.not-in-collection {
+  opacity: 0.45;
+}
+
+.mod.not-in-collection:hover,
+.mod.not-in-collection.selected {
+  opacity: 0.85;
+}
+
+/* Mods in active collection get a subtle left accent */
+.mod.in-collection {
+  border-left: 2px solid rgba(139, 211, 255, 0.35);
+  padding-left: 14px;
+}
+
+/* Pending/selected mods get a yellow accent */
+.mod.is-pending {
+  border-left: 2px solid rgba(245, 200, 66, 0.5);
+  padding-left: 14px;
+  background: rgba(245, 200, 66, 0.05) !important;
+}

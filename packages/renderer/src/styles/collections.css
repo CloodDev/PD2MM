@@ -1,0 +1,402 @@
+/* ─── Collection Manager ─── */
+
+.collection-manager {
+  position: relative;
+  width: 100%;
+}
+
+/* Toggle button — lives in the sidebar header area */
+.collection-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(139, 211, 255, 0.06);
+  border: 1px solid rgba(188, 205, 255, 0.12);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  text-align: left;
+}
+
+.collection-toggle:hover {
+  background: rgba(139, 211, 255, 0.12);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.collection-toggle.active {
+  background: rgba(139, 211, 255, 0.14);
+  border-color: rgba(139, 211, 255, 0.36);
+  color: var(--primary-color);
+}
+
+.collection-toggle-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.collection-toggle-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-active-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--success-color);
+  background: rgba(119, 224, 163, 0.12);
+  border: 1px solid rgba(119, 224, 163, 0.28);
+  border-radius: 6px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.collection-toggle-chevron {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* Dropdown panel */
+.collection-panel {
+  margin-top: 6px;
+  background: linear-gradient(180deg, rgba(18, 23, 36, 0.98), rgba(14, 18, 28, 0.96));
+  border: 1px solid rgba(188, 205, 255, 0.16);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  animation: collectionFadeIn 0.15s ease;
+}
+
+@keyframes collectionFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.collection-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(188, 205, 255, 0.08);
+}
+
+.collection-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.collection-new-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(139, 211, 255, 0.10);
+  border: 1px solid rgba(139, 211, 255, 0.22);
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.collection-new-btn:hover {
+  background: rgba(139, 211, 255, 0.18);
+  border-color: rgba(139, 211, 255, 0.40);
+}
+
+/* Create row */
+.collection-create-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(188, 205, 255, 0.08);
+}
+
+.collection-name-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(188, 205, 255, 0.22);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.collection-name-input:focus {
+  border-color: var(--border-focus);
+}
+
+.collection-confirm-btn,
+.collection-cancel-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.collection-confirm-btn {
+  background: rgba(119, 224, 163, 0.14);
+  border-color: rgba(119, 224, 163, 0.28);
+  color: var(--success-color);
+}
+
+.collection-confirm-btn:hover:not(:disabled) {
+  background: rgba(119, 224, 163, 0.24);
+}
+
+.collection-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.collection-cancel-btn {
+  background: rgba(255, 127, 143, 0.10);
+  border-color: rgba(255, 127, 143, 0.22);
+  color: var(--danger-color);
+}
+
+.collection-cancel-btn:hover {
+  background: rgba(255, 127, 143, 0.20);
+}
+
+/* Empty state */
+.collection-empty {
+  padding: 16px 14px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.collection-empty p {
+  margin: 0;
+}
+
+/* Collection list */
+.collection-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.collection-list::-webkit-scrollbar {
+  width: 6px;
+}
+.collection-list::-webkit-scrollbar-track { background: transparent; }
+.collection-list::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+}
+
+/* Single collection item */
+.collection-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(188, 205, 255, 0.06);
+  transition: background var(--transition);
+}
+
+.collection-item:last-child {
+  border-bottom: none;
+}
+
+.collection-item:hover {
+  background: rgba(139, 211, 255, 0.05);
+}
+
+.collection-item.is-active {
+  background: rgba(139, 211, 255, 0.08);
+  border-left: 2px solid var(--primary-color);
+  padding-left: 12px;
+}
+
+.collection-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.collection-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collection-item-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.collection-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.collection-apply-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(139, 211, 255, 0.10);
+  border: 1px solid rgba(139, 211, 255, 0.22);
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+  white-space: nowrap;
+}
+
+.collection-apply-btn:hover:not(:disabled) {
+  background: rgba(139, 211, 255, 0.20);
+  border-color: rgba(139, 211, 255, 0.40);
+}
+
+.collection-apply-btn.is-active {
+  background: rgba(119, 224, 163, 0.12);
+  border-color: rgba(119, 224, 163, 0.28);
+  color: var(--success-color);
+}
+
+.collection-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.collection-delete-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.collection-delete-btn:hover {
+  background: rgba(255, 127, 143, 0.12);
+  border-color: rgba(255, 127, 143, 0.24);
+  color: var(--danger-color);
+}
+
+/* ─── Pending mods banner ─── */
+
+.collection-pending-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(245, 200, 66, 0.08);
+  border: 1px solid rgba(245, 200, 66, 0.28);
+  border-radius: var(--radius-sm);
+  animation: collectionFadeIn 0.15s ease;
+}
+
+.collection-pending-icon {
+  font-size: 14px;
+  color: #f5c842;
+  flex-shrink: 0;
+}
+
+.collection-pending-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5c842;
+  white-space: nowrap;
+}
+
+.collection-pending-save {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: rgba(245, 200, 66, 0.14);
+  border: 1px solid rgba(245, 200, 66, 0.34);
+  color: #f5c842;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition);
+}
+
+.collection-pending-save:hover {
+  background: rgba(245, 200, 66, 0.24);
+}
+
+.collection-pending-clear {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(245, 200, 66, 0.7);
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+
+.collection-pending-clear:hover {
+  background: rgba(245, 200, 66, 0.12);
+  color: #f5c842;
+}
+
+/* ─── Deselect button (appears next to active collection) ─── */
+.collection-deselect-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(139, 211, 255, 0.08);
+  border: 1px solid rgba(139, 211, 255, 0.20);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.collection-deselect-btn:hover {
+  background: rgba(255, 127, 143, 0.12);
+  border-color: rgba(255, 127, 143, 0.28);
+  color: var(--danger-color);
+}

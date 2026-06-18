@@ -12,6 +12,7 @@ import ModList from './components/ModList';
 import ModInfo from './components/ModInfo';
 import WorkspaceHero from './components/WorkspaceHero';
 import ModDownloader from './components/ModDownloader';
+import CollectionManager from './components/CollectionManager';
 
 const MOD_REFRESH_INTERVAL_MS = 30000;
 
@@ -31,6 +32,9 @@ function App() {
   const [appUpdateStatus, setAppUpdateStatus] = useState(null);
   const [isLaunchingGame, setIsLaunchingGame] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [activeCollectionId, setActiveCollectionId] = useState(null);
+  const [isApplyingCollection, setIsApplyingCollection] = useState(false);
 
   const pathRef = useRef(path);
   const appUpdateStatusTimeoutRef = useRef(null);
@@ -304,6 +308,68 @@ function App() {
     }
   };
 
+  const handleSaveCollection = useCallback(async (collection, silent = false) => {
+    const result = await window.electron.ipcRenderer.invoke('save-collection', collection);
+    if (result?.success) {
+      setCollections((prev) => {
+        const existing = prev.findIndex((c) => c.id === collection.id);
+        if (existing >= 0) {
+          const updated = [...prev];
+          updated[existing] = collection;
+          return updated;
+        }
+        return [...prev, collection];
+      });
+      if (!silent) {
+        setSuccessMessage(`✓ Collection "${collection.name}" saved!`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } else {
+      setErrorMessage(`Failed to save collection: ${result?.error || 'Unknown error'}`);
+    }
+  }, []);
+
+  const handleApplyCollection = useCallback(async (collection) => {
+    if (!path || path === 'C:\\mods') {
+      setErrorMessage('Please select your Payday 2 directory first.');
+      return;
+    }
+    setIsApplyingCollection(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const result = await window.electron.ipcRenderer.invoke('apply-collection', {
+        basePath: path,
+        collection,
+      });
+      if (result?.success) {
+        setActiveCollectionId(collection.id);
+        setSelected(-1);
+        await listMods();
+        setSuccessMessage(`✓ Switched to collection "${collection.name}"!`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrorMessage(`Failed to apply collection: ${result?.error || 'Unknown error'}`);
+      }
+    } finally {
+      setIsApplyingCollection(false);
+    }
+  }, [path, listMods]);
+
+  const handleDeleteCollection = useCallback(async (collectionId) => {
+    const result = await window.electron.ipcRenderer.invoke('delete-collection', collectionId);
+    if (result?.success) {
+      setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+      if (activeCollectionId === collectionId) setActiveCollectionId(null);
+    } else {
+      setErrorMessage(`Failed to delete collection: ${result?.error || 'Unknown error'}`);
+    }
+  }, [activeCollectionId]);
+
+  const handleDeselectCollection = useCallback(() => {
+    setActiveCollectionId(null);
+  }, []);
+
   const notificationCards = useMemo(() => [
     isDownloading ? {
       key: 'download-progress',
@@ -368,6 +434,10 @@ function App() {
     window.electron.ipcRenderer.invoke('load-settings').then((savedPath) => {
       if (savedPath) setPath(savedPath);
       setIsSettingsLoaded(true);
+    });
+
+    window.electron.ipcRenderer.invoke('load-collections').then((cols) => {
+      if (Array.isArray(cols)) setCollections(cols);
     });
 
     const handleUpdateStatus = (data) => {
@@ -493,6 +563,13 @@ function App() {
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           getSidebarItemStyle={getSidebarItemStyle}
+          collections={collections}
+          activeCollectionId={activeCollectionId}
+          onSaveCollection={handleSaveCollection}
+          onApplyCollection={handleApplyCollection}
+          onDeleteCollection={handleDeleteCollection}
+          isApplyingCollection={isApplyingCollection}
+          onDeselectCollection={handleDeselectCollection}
         />
 
         <div className="main-content">

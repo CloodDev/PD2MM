@@ -1376,3 +1376,156 @@ const registerUpdateHandlers = () => {
 };
 
 registerUpdateHandlers();
+
+// ─────────────────────────────────────────────
+// Collections IPC Handlers
+// ─────────────────────────────────────────────
+
+type ModCollectionEntry = {
+  name: string;
+  type: string;
+  enabled: boolean;
+};
+
+type ModCollection = {
+  id: string;
+  name: string;
+  createdAt: string;
+  mods: ModCollectionEntry[];
+};
+
+const collectionsFilePath = () =>
+  path.join(settingsDirectory(), "collections.json");
+
+const loadCollections = (): ModCollection[] => {
+  try {
+    const filePath = collectionsFilePath();
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as ModCollection[];
+  } catch {
+    return [];
+  }
+};
+
+const saveCollections = (collections: ModCollection[]) => {
+  if (!fs.existsSync(settingsDirectory())) {
+    fs.mkdirSync(settingsDirectory(), { recursive: true });
+  }
+  fs.writeFileSync(collectionsFilePath(), JSON.stringify(collections, null, 2), "utf8");
+};
+
+ipcMain.handle("load-collections", async () => {
+  return loadCollections();
+});
+
+ipcMain.handle("save-collection", async (_event, collection: ModCollection) => {
+  try {
+    const collections = loadCollections();
+    const existingIndex = collections.findIndex((c) => c.id === collection.id);
+    if (existingIndex >= 0) {
+      collections[existingIndex] = collection;
+    } else {
+      collections.push(collection);
+    }
+    saveCollections(collections);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle("delete-collection", async (_event, collectionId: string) => {
+  try {
+    const collections = loadCollections().filter((c) => c.id !== collectionId);
+    saveCollections(collections);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+// Apply a collection: enable mods in it, disable everything else
+ipcMain.handle(
+  "apply-collection",
+  async (_event, { basePath, collection }: { basePath: string; collection: ModCollection }) => {
+    try {
+      // Build lookup of what the collection wants enabled
+      const collectionEnabledSet = new Set(
+        collection.mods
+          .filter((m) => m.enabled !== false)
+          .map((m) => `${m.type}:${m.name}`)
+      );
+
+      // Get current live mod list by re-reading the folder
+      const allMods: ModCollectionEntry[] = [];
+      const types = ["mod", "map", "override"] as const;
+
+      for (const type of types) {
+        const activePath =
+          type === "override"
+            ? `${basePath}/assets/mod_overrides`
+            : type === "map"
+            ? `${basePath}/Maps`
+            : `${basePath}/mods`;
+
+        const disabledPath = getDisabledModsContainerPath(basePath, type);
+
+        if (fs.existsSync(activePath)) {
+          for (const entry of fs.readdirSync(activePath)) {
+            if (MOD_UTILITY_FOLDERS.has(entry)) continue;
+            const full = path.join(activePath, entry);
+            if (fs.statSync(full).isDirectory()) {
+              allMods.push({ name: entry, type, enabled: true });
+            }
+          }
+        }
+        if (fs.existsSync(disabledPath)) {
+          for (const entry of fs.readdirSync(disabledPath)) {
+            const full = path.join(disabledPath, entry);
+            if (fs.statSync(full).isDirectory()) {
+              allMods.push({ name: entry, type, enabled: false });
+            }
+          }
+        }
+      }
+
+      const errors: string[] = [];
+
+      for (const mod of allMods) {
+        const key = `${mod.type}:${mod.name}`;
+        const shouldBeEnabled = collectionEnabledSet.has(key);
+        if (mod.enabled === shouldBeEnabled) continue; // already in the right state
+
+        const src = mod.enabled
+          ? getActiveModPath(basePath, mod.type, mod.name)
+          : getDisabledModPath(basePath, mod.type, mod.name);
+        const dst = shouldBeEnabled
+          ? getActiveModPath(basePath, mod.type, mod.name)
+          : getDisabledModPath(basePath, mod.type, mod.name);
+
+        if (!shouldBeEnabled) {
+          ensureDirectory(getDisabledModsContainerPath(basePath, mod.type));
+        }
+
+        const moved = moveDirectoryReplacingIfExists(src, dst);
+        if (!moved) {
+          errors.push(`Could not move ${mod.name}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        return { success: false, error: errors.join(", ") };
+      }
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+);

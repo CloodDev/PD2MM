@@ -213,3 +213,8 @@
     align-items: flex-start;
   }
 }
+
+/* Collection manager wrapper in sidebar */
+.collection-manager-wrapper {
+  margin-bottom: 14px;
+}
