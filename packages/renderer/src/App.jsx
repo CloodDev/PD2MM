@@ -366,8 +366,12 @@ function App() {
     }
   }, [activeCollectionId]);
 
-  const handleDeselectCollection = useCallback(() => {
+  const handleDeselectCollection = useCallback(async (as) => {
     setActiveCollectionId(null);
+    const result = await window.electron.ipcRenderer.invoke('deselect-collection', {
+      basePath: path,
+    });
+    setSuccessMessage(result?.success ? '✓ Collection deselected!' : `Failed to deselect collection: ${result?.error || 'Unknown error'}`);
   }, []);
 
   const notificationCards = useMemo(() => [

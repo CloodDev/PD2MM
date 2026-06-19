@@ -1414,7 +1414,11 @@ const saveCollections = (collections: ModCollection[]) => {
   if (!fs.existsSync(settingsDirectory())) {
     fs.mkdirSync(settingsDirectory(), { recursive: true });
   }
-  fs.writeFileSync(collectionsFilePath(), JSON.stringify(collections, null, 2), "utf8");
+  fs.writeFileSync(
+    collectionsFilePath(),
+    JSON.stringify(collections, null, 2),
+    "utf8",
+  );
 };
 
 ipcMain.handle("load-collections", async () => {
@@ -1433,7 +1437,10 @@ ipcMain.handle("save-collection", async (_event, collection: ModCollection) => {
     saveCollections(collections);
     return { success: true };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 });
 
@@ -1443,20 +1450,57 @@ ipcMain.handle("delete-collection", async (_event, collectionId: string) => {
     saveCollections(collections);
     return { success: true };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 });
+ipcMain.handle(
+  "deselect-collection",
+  async (_event, { basePath }: { basePath: string }) => {
+    try {
+      // enable all avaliable mods
+      for (const type of ["mod", "map", "override"] as const) {
+        const activePath =
+          type === "override"
+            ? `${basePath}/assets/mod_overrides`
+            : type === "map"
+              ? `${basePath}/Maps`
+              : `${basePath}/mods`;
 
+        const disabledPath = getDisabledModsContainerPath(basePath, type);
+
+        if (fs.existsSync(disabledPath)) {
+          for (const entry of fs.readdirSync(disabledPath)) {
+            const src = path.join(disabledPath, entry);
+            const dst = path.join(activePath, entry);
+            moveDirectoryReplacingIfExists(src, dst);
+          }
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  },
+);
 // Apply a collection: enable mods in it, disable everything else
 ipcMain.handle(
   "apply-collection",
-  async (_event, { basePath, collection }: { basePath: string; collection: ModCollection }) => {
+  async (
+    _event,
+    { basePath, collection }: { basePath: string; collection: ModCollection },
+  ) => {
     try {
       // Build lookup of what the collection wants enabled
       const collectionEnabledSet = new Set(
         collection.mods
           .filter((m) => m.enabled !== false)
-          .map((m) => `${m.type}:${m.name}`)
+          .map((m) => `${m.type}:${m.name}`),
       );
 
       // Get current live mod list by re-reading the folder
@@ -1468,8 +1512,8 @@ ipcMain.handle(
           type === "override"
             ? `${basePath}/assets/mod_overrides`
             : type === "map"
-            ? `${basePath}/Maps`
-            : `${basePath}/mods`;
+              ? `${basePath}/Maps`
+              : `${basePath}/mods`;
 
         const disabledPath = getDisabledModsContainerPath(basePath, type);
 
@@ -1527,5 +1571,5 @@ ipcMain.handle(
         error: err instanceof Error ? err.message : String(err),
       };
     }
-  }
+  },
 );
