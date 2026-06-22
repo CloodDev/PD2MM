@@ -139,15 +139,29 @@ function ModList({
     const modKey = `${mod.type}:${mod.name}`;
     const isPending = pendingMods.has(modKey);
 
+    // Estimate menu height for vertical clamping
+    const itemHeight = 33;
+    const headerHeight = 36;
+    const dividerHeight = 7;
+    const labelHeight = 22;
+    let estimatedHeight = headerHeight + dividerHeight + itemHeight + 8;
+    if (collections.length > 0) {
+      estimatedHeight += dividerHeight + labelHeight + collections.length * itemHeight;
+    }
+
     // Clamp to viewport
     const menuWidth = 220;
-    const clampedX = Math.min(x, window.innerWidth - menuWidth - 8);
+    const margin = 8;
+    const clampedX = Math.min(x, window.innerWidth - menuWidth - margin);
+    const clampedY = y + estimatedHeight > window.innerHeight - margin
+      ? Math.max(margin, y - estimatedHeight)
+      : y;
 
     return (
       <div
         ref={contextMenuRef}
         className="ctx-menu"
-        style={{ left: clampedX, top: y }}
+        style={{ left: clampedX, top: clampedY }}
       >
         <div className="ctx-menu-header">
           <span className="ctx-menu-mod-name">{mod.name}</span>
@@ -187,7 +201,7 @@ function ModList({
   };
 
   return (
-    <div className="sidebar">
+    <><div className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-header-copy">
           <div className="collection-manager-wrapper">
@@ -264,8 +278,9 @@ function ModList({
         )}
       </div>
 
+      </div>
       {renderContextMenu()}
-    </div>
+    </>
   );
 }
 

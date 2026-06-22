@@ -6,7 +6,26 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check_tag.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          TAG="v$(jq -r .version < package.json)"
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists. Skipping build."
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-linux:
+    needs: [check]
+    if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +49,8 @@ jobs:
           path: dist/PD2MM-*.flatpak
 
   build-windows:
+    needs: [check]
+    if: needs.check.outputs.should_build == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
