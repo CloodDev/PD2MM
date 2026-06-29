@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.removeListener(channel, wrappedListener);
       listenerMap.get(channel)?.delete(func);
     }
-  }        
+  }
 });
 
 export {sha256sum, versions, send};
