@@ -82,8 +82,20 @@ export function registerDownloadHandler(ipcMain: any, helpers: Helpers) {
         if (process.platform === 'linux') { await helpers.extractArchiveOnLinux(archiveType, zipPath, tempExtractPath); extractionSuccess = true; }
         else {
           const findExecutable = (paths: Array<string | undefined>) => paths.find(p => p && fs.existsSync(p)) ?? null;
-          const seven = findExecutable(["/usr/bin/7z", "/usr/bin/7za", "/usr/bin/7zr", "/usr/bin/p7zip"]);
-          const rar = findExecutable(["/usr/bin/unrar", "/usr/bin/rar"]);
+          const seven = findExecutable([
+            "C:\\Program Files\\7-Zip\\7z.exe",
+            "C:\\Program Files (x86)\\7-Zip\\7z.exe",
+            "/usr/bin/7z", "/usr/bin/7za", "/usr/bin/7zr", "/usr/bin/p7zip",
+          ]);
+          const rar = findExecutable([
+            "C:\\Program Files\\WinRAR\\UnRAR.exe",
+            "C:\\Program Files (x86)\\WinRAR\\UnRAR.exe",
+            "C:\\Program Files\\WinRAR\\Rar.exe",
+            "C:\\Program Files (x86)\\WinRAR\\Rar.exe",
+            "C:\\Program Files\\WinRAR\\WinRAR.exe",
+            "C:\\Program Files (x86)\\WinRAR\\WinRAR.exe",
+            "/usr/bin/unrar", "/usr/bin/rar",
+          ]);
 
           const trySpawn = (cmd: string, args: string[]) => new Promise<void>((resolve, reject) => { const p = spawn(cmd, args); let stderr = ''; p.stderr?.on('data', d => stderr += d.toString()); p.on('close', code => code === 0 ? resolve() : reject(new Error(`${cmd} failed (code ${code}): ${stderr}`))); p.on('error', reject); });
 
