@@ -1444,6 +1444,24 @@ ipcMain.handle("save-collection", async (_event, collection: ModCollection) => {
   }
 });
 
+ipcMain.handle(
+  "confirm-delete-collection",
+  async (_event, { name }: { name: string }) => {
+    const result = await dialog.showMessageBox({
+      type: "warning",
+      buttons: ["Cancel", "Delete"],
+      defaultId: 1,
+      cancelId: 0,
+      noLink: true,
+      title: "Delete collection",
+      message: `Delete collection \"${name}\"?`,
+      detail: "This removes the saved collection from disk. It does not change your mods.",
+    });
+
+    return { confirmed: result.response === 1 };
+  },
+);
+
 ipcMain.handle("delete-collection", async (_event, collectionId: string) => {
   try {
     const collections = loadCollections().filter((c) => c.id !== collectionId);

@@ -199,8 +199,13 @@ function CollectionManager({
                     )}
                     <button
                       className="collection-delete-btn"
-                      onClick={() => {
-                        if (confirm(`Delete collection "${col.name}"?`)) {
+                      onClick={async () => {
+                        const result = await window.electron.ipcRenderer.invoke(
+                          'confirm-delete-collection',
+                          { name: col.name },
+                        );
+
+                        if (result?.confirmed) {
                           onDeleteCollection(col.id);
                         }
                       }}
