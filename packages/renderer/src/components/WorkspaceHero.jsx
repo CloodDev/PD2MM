@@ -11,11 +11,11 @@ function WorkspaceHero({ configuredPath, totalMods, enabledMods }) {
         <span className="workspace-hero-eyebrow">Mods Enabled</span>
         <div className="hero-stat-container">
           <div className="hero-stat">
-            <strong>{totalMods}</strong>
+            <strong>{enabledMods}</strong>
           </div>
           /
           <div className="hero-stat">
-            <strong>{enabledMods}</strong>
+            <strong>{totalMods}</strong>
           </div>
         </div>
       </div>
