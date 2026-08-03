@@ -7,7 +7,9 @@ if (!['patch', 'minor', 'major'].includes(releaseType)) {
   process.exit(1);
 }
 
-const newVersion = execFileSync('npm', ['version', releaseType, '--no-git-tag-version'], {
+const npmCli = process.env.npm_execpath || 'npm';
+
+const newVersion = execFileSync(process.execPath, [npmCli, 'version', releaseType, '--no-git-tag-version'], {
   encoding: 'utf8',
   stdio: ['ignore', 'pipe', 'inherit'],
 }).trim();
