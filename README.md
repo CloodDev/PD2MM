@@ -89,10 +89,6 @@ If unset, PD2MM uses this repository's public releases. The updater is implement
 - **No mods appear after selecting folder**
 	- Ensure the selected directory is the PAYDAY 2 root folder.
 
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
-
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](./LICENSE).
