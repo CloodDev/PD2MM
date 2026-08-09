@@ -32,6 +32,7 @@ function App() {
   const [appUpdateStatus, setAppUpdateStatus] = useState(null);
   const [isLaunchingGame, setIsLaunchingGame] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
+  const [themeMode, setThemeMode] = useState('system');
   const [collections, setCollections] = useState([]);
   const [activeCollectionId, setActiveCollectionId] = useState(null);
   const [isApplyingCollection, setIsApplyingCollection] = useState(false);
@@ -403,6 +404,57 @@ function App() {
   useEffect(() => { pathRef.current = path; }, [path]);
 
   useEffect(() => {
+    const savedThemeMode = window.localStorage.getItem('themeMode');
+    if (savedThemeMode === 'dark' || savedThemeMode === 'system' || savedThemeMode === 'white') {
+      setThemeMode(savedThemeMode);
+    } else if (savedThemeMode === 'light') {
+      setThemeMode('white');
+    }
+  }, []);
+
+  useEffect(() => {
+    const resolveTheme = (mode) => {
+      if (mode === 'dark') return 'dark';
+      if (mode === 'light' || mode === 'white') return 'light';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    };
+
+    const applyTheme = () => {
+      const resolved = resolveTheme(themeMode);
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.dataset.thememode = themeMode;
+      window.localStorage.setItem('themeMode', themeMode === 'white' ? 'white' : themeMode);
+    };
+
+    applyTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemChange = () => {
+      if (themeMode === 'system') applyTheme();
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', onSystemChange);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(onSystemChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', onSystemChange);
+      } else if (mediaQuery.removeListener) {
+        mediaQuery.removeListener(onSystemChange);
+      }
+    };
+  }, [themeMode]);
+
+  const handleToggleThemeMode = useCallback(() => {
+    setThemeMode((current) =>
+      current === 'system' ? 'dark' : current === 'dark' ? 'white' : 'system'
+    );
+  }, []);
+
+  useEffect(() => {
     if (appUpdateStatusTimeoutRef.current) {
       clearTimeout(appUpdateStatusTimeoutRef.current);
       appUpdateStatusTimeoutRef.current = null;
@@ -557,7 +609,7 @@ function App() {
     <div className="root">
       <NotificationStack notifications={notificationCards} />
 
-      <TitleBar />
+      <TitleBar themeMode={themeMode} onToggleThemeMode={handleToggleThemeMode} />
 
       <div className="app-container">
         <ModList

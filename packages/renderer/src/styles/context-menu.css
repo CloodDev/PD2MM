@@ -5,10 +5,10 @@
   z-index: 9999;
   min-width: 220px;
   max-width: 260px;
-  background: linear-gradient(180deg, rgba(22, 28, 44, 0.98), rgba(16, 21, 33, 0.98));
-  border: 1px solid rgba(188, 205, 255, 0.18);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
   border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.05);
   backdrop-filter: blur(16px) saturate(140%);
   overflow: hidden;
   animation: ctxFadeIn 0.12s ease;

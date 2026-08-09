@@ -16,8 +16,8 @@
   pointer-events: auto;
   border-radius: 16px;
   padding: 14px 16px 15px;
-  background: linear-gradient(180deg, rgba(16, 20, 32, 0.96), rgba(8, 11, 18, 0.96));
-  border: 1px solid rgba(188, 205, 255, 0.14);
+  background: var(--toast-background);
+  border: 1px solid var(--toast-border);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(14px) saturate(125%);
   color: var(--text-primary);
@@ -45,8 +45,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--toast-pill-background);
+  border: 1px solid var(--toast-pill-border);
 }
 
 .notification-toast-body {
@@ -61,7 +61,7 @@
   height: 7px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--toast-progress-background);
 }
 
 .notification-toast-progress-fill {
@@ -80,8 +80,8 @@
 
 .notification-toast-button {
   appearance: none;
-  border: 1px solid rgba(188, 205, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--notification-button-border);
+  background: var(--notification-button-background);
   color: var(--text-primary);
   border-radius: 10px;
   padding: 8px 11px;
