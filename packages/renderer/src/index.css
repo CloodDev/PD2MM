@@ -5,10 +5,8 @@
   font-size: 14px;
 
   color-scheme: dark;
-  color: #f5f7fb;
-  background:
-    radial-gradient(circle at top left, rgba(139, 211, 255, 0.14), transparent 34%),
-    linear-gradient(180deg, #070911 0%, #090c14 100%);
+  color: var(--text-primary);
+  background: var(--root-background);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -43,8 +41,8 @@ button {
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
-  background: linear-gradient(180deg, rgba(139, 211, 255, 0.18), rgba(139, 211, 255, 0.10));
-  color: #f5f7fb;
+  background: var(--button-background);
+  color: var(--button-color);
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 38px;
@@ -69,12 +67,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
+[data-theme='light'] {
+  color-scheme: light;
+  color: var(--text-primary);
+}
+
 button.secondary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  background: var(--button-secondary-background);
 }
 
 button.secondary:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.06));
+  background: var(--button-secondary-hover);
 }
 
 button.success {
@@ -96,9 +99,9 @@ button.danger:hover {
 input:not([type="checkbox"]) {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(188, 205, 255, 0.14);
-  background-color: rgba(7, 10, 18, 0.5);
-  color: #f5f7fb;
+  border: 1px solid var(--input-border);
+  background-color: var(--input-background);
+  color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -116,5 +119,5 @@ input:not([type="checkbox"]):focus {
 }
 
 input:not([type="checkbox"])::placeholder {
-  color: #8892a8;
+  color: var(--input-placeholder);
 }

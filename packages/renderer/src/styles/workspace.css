@@ -12,9 +12,9 @@
 }
 
 .workspace-hero {
-  background: rgba(7, 10, 18, 0.50);
-  border: 1px solid rgba(188, 205, 255, 0.14);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-inner-shadow);
   border-radius: var(--radius-lg);
   padding: 18px;
   overflow: hidden;

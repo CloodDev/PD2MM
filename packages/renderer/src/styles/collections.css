@@ -70,8 +70,8 @@
 /* Dropdown panel */
 .collection-panel {
   margin-top: 6px;
-  background: linear-gradient(180deg, rgba(18, 23, 36, 0.98), rgba(14, 18, 28, 0.96));
-  border: 1px solid rgba(188, 205, 255, 0.16);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: var(--shadow-md);
@@ -88,7 +88,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(188, 205, 255, 0.08);
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .collection-panel-title {
@@ -127,8 +127,8 @@
 
 .collection-name-input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(188, 205, 255, 0.22);
+  background: var(--input-background);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 6px 10px;
   color: var(--text-primary);
