@@ -10,8 +10,8 @@ export const detectExtractedMod = (
   itemPath: string,
   itemName: string
 ): { kind: string; destination: string; moveContents?: boolean } | null => {
-  if (itemName === "mod_overrides") {
-    return { kind: "override-folder", destination: "mod_overrides", moveContents: true };
+  if (itemName === "assets/mod_overrides") {
+    return { kind: "override-folder", destination: "assets/mod_overrides", moveContents: true };
   }
 
   if (fs.existsSync(`${itemPath}/mod.txt`)) {
@@ -23,19 +23,19 @@ export const detectExtractedMod = (
     if (content.includes("<level")) {
       return { kind: "map", destination: "maps" };
     } else if (content.includes("<Weapon")) {
-      return { kind: "weapon", destination: "mod_overrides", moveContents: false };
+      return { kind: "weapon", destination: "assets/mod_overrides", moveContents: false };
     }
   }
 
   if (fs.existsSync(`${itemPath}/add.xml`) || fs.existsSync(`${itemPath}/supermod.xml`)) {
-    return { kind: "weapon", destination: "mod_overrides", moveContents: false };
+    return { kind: "weapon", destination: "assets/mod_overrides", moveContents: false };
   }
 
   for (const folder of knownModFolders) {
     if (fs.existsSync(`${itemPath}/${folder}`)) {
-      return { kind: "override-folder", destination: "mod_overrides", moveContents: true };
+      return { kind: "override-folder", destination: "assets/mod_overrides", moveContents: true };
     }
   }
 
-  return { kind: "override", destination: "mod_overrides", moveContents: false };
+  return { kind: "override", destination: "assets/mod_overrides", moveContents: false };
 };
