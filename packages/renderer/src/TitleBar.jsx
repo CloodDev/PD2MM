@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './TitleBar.css';
 import appIcon from '/app-icon.png';
 
-function TitleBar() {
+function TitleBar({ themeMode, onToggleThemeMode }) {
   const [isMaximized, setIsMaximized] = useState(false);
 
   const handleMinimize = () => {
@@ -27,6 +27,21 @@ function TitleBar() {
         </div>
       </div>
       <div className="title-bar-controls">
+        <button
+          className="title-bar-button theme-toggle"
+          type="button"
+          onClick={onToggleThemeMode}
+          title={
+            themeMode === 'system'
+              ? 'Theme: System'
+              : themeMode === 'dark'
+              ? 'Theme: Dark'
+              : 'Theme: White'
+          }
+          aria-label="Toggle theme mode"
+        >
+          {themeMode === 'system' ? '🖥' : themeMode === 'dark' ? '🌙' : '☀️'}
+        </button>
         <button className="title-bar-button minimize" onClick={handleMinimize} title="Minimize">
           <svg width="10" height="10" viewBox="0 0 12 12">
             <rect width="10" height="1" x="1" y="6" />
