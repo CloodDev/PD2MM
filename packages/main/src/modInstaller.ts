@@ -49,7 +49,8 @@ export function registerDownloadHandler(ipcMain: any, helpers: Helpers) {
 
       const downloadURL = `https://api.modworkshop.net/files/${latestFile.id}/download`;
       const archiveType = String(latestFile.download_url ?? downloadURL).toLowerCase().includes('.7z') ? '7z' : String(latestFile.download_url ?? downloadURL).toLowerCase().includes('.rar') ? 'rar' : 'zip';
-
+      const registeredDownload= await request(`https://api.modworkshop.net/files/${latestFile.id}/register-download`, { method: 'POST' });
+      console.log('Registered download:', registeredDownload.statusCode, await registeredDownload.body.text().catch(() => ""));
       send({ status: "downloading", progress: 10 });
 
       let response = await request(downloadURL, { headers: { 'User-Agent': 'PD2MM/1.0' } });
