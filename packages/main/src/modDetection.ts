@@ -13,7 +13,9 @@ export const detectExtractedMod = (
   if (itemName === "assets/mod_overrides") {
     return { kind: "override-folder", destination: "assets/mod_overrides", moveContents: true };
   }
-
+  if (fs.existsSync(`${itemPath}/supermod.xml`)) {
+    return { kind: "blt", destination: "mods" };
+  }
   if (fs.existsSync(`${itemPath}/mod.txt`)) {
     return { kind: "blt", destination: "mods" };
   }
