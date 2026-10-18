@@ -354,6 +354,52 @@ const tryParseModTxt = (rawContent: string): ParsedModMetadata | null => {
   return hasAnyValue ? fallback : null;
 };
 
+const tryParseSupermodXml = (rawContent: string): ParsedModMetadata | null => {
+  const content = rawContent.replace(/<!--[\s\S]*?-->/g, "");
+  const modTagMatch = content.match(/<(?:super)?mod\b([^>]*)>/i);
+  const modTagAttributes = modTagMatch?.[1] ?? "";
+
+  const extractAttribute = (
+    source: string,
+    key: string,
+  ): string | undefined => {
+    const attrRegex = new RegExp(
+      `(?:^|\\s):?${key}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`,
+      "i",
+    );
+    const match = source.match(attrRegex);
+    const value = (match?.[1] ?? match?.[2])?.trim();
+    return value ? value : undefined;
+  };
+
+  const extractTagContent = (key: string): string | undefined => {
+    const tagRegex = new RegExp(`<${key}>([^<]+)<\\/${key}>`, "i");
+    const match = content.match(tagRegex);
+    const value = match?.[1]?.trim();
+    return value ? value : undefined;
+  };
+
+  const getField = (key: string): string | undefined =>
+    extractAttribute(modTagAttributes, key) ?? extractTagContent(key);
+
+  const parsed: ParsedModMetadata = {
+    name: getField("name"),
+    version: getField("version"),
+    author: getField("author"),
+    image: getField("image"),
+    color: normalizeModColor(
+      getField("color") ||
+        getField("backgroundColor") ||
+        getField("background_color") ||
+        getField("bgcolor") ||
+        getField("bgColor"),
+    ),
+  };
+
+  const hasAnyValue = Object.values(parsed).some((value) => Boolean(value));
+  return hasAnyValue ? parsed : null;
+};
+
 const getModSourceMetadataPath = (modPath: string) =>
   `${modPath}/${MOD_SOURCE_METADATA_FILE}`;
 
@@ -477,10 +523,64 @@ const tryExtractModWorkshopIdFromModTxt = (
   return null;
 };
 
+const tryExtractModWorkshopIdFromSupermodXml = (
+  rawContent: string,
+): string | null => {
+  const content = rawContent.replace(/<!--[\s\S]*?-->/g, "");
+
+  const urlMatch = content.match(/modworkshop\.net\/mod\/(\d+)/i);
+  if (urlMatch?.[1]) {
+    return urlMatch[1];
+  }
+
+  const updateTagRegex = /<update\b([^>]*)\/?>/gi;
+  let updateMatch: RegExpExecArray | null;
+  while ((updateMatch = updateTagRegex.exec(content)) !== null) {
+    const attrs = updateMatch[1] ?? "";
+    const providerMatch = attrs.match(
+      /(?:^|\s)provider\s*=\s*(?:"([^"]*)"|'([^']*)')/i,
+    );
+    const provider = (providerMatch?.[1] ?? providerMatch?.[2])?.toLowerCase();
+    if (provider && provider !== "mws" && !provider.includes("modworkshop")) {
+      continue;
+    }
+
+    const idMatch = attrs.match(
+      /(?:^|\s)(?:identifier|id)\s*=\s*(?:"([^"]*)"|'([^']*)')/i,
+    );
+    const fromId = extractModWorkshopId(idMatch?.[1] ?? idMatch?.[2]);
+    if (fromId) {
+      return fromId;
+    }
+  }
+
+  const modUpdatesMatch = content.match(
+    /<(?:super)?mod\b[^>]*\bupdates\s*=\s*(?:"([^"]*)"|'([^']*)')/i,
+  );
+  const fromModUpdates = extractModWorkshopId(
+    modUpdatesMatch?.[1] ?? modUpdatesMatch?.[2],
+  );
+  if (fromModUpdates) {
+    return fromModUpdates;
+  }
+
+  return null;
+};
+
 const getInstalledModVersion = (modPath: string): string => {
   const modTxtPath = `${modPath}/mod.txt`;
   if (fs.existsSync(modTxtPath)) {
     const parsed = tryParseModTxt(fs.readFileSync(modTxtPath, "utf8"));
+    if (parsed?.version) {
+      return parsed.version;
+    }
+  }
+
+  const supermodXmlPath = `${modPath}/supermod.xml`;
+  if (fs.existsSync(supermodXmlPath)) {
+    const parsed = tryParseSupermodXml(
+      fs.readFileSync(supermodXmlPath, "utf8"),
+    );
     if (parsed?.version) {
       return parsed.version;
     }
@@ -824,17 +924,30 @@ ipcMain.handle("list-mods", async (event, operation) => {
 
     const readModColor = (modPath: string) => {
       const modTxtPath = `${modPath}/mod.txt`;
-      if (!fs.existsSync(modTxtPath)) {
-        return undefined;
+      if (fs.existsSync(modTxtPath)) {
+        try {
+          const modText = fs.readFileSync(modTxtPath, "utf8");
+          const mod = tryParseModTxt(modText);
+          if (mod?.color) {
+            return mod.color;
+          }
+        } catch {
+          // Fall through to supermod.xml
+        }
       }
 
-      try {
-        const modText = fs.readFileSync(modTxtPath, "utf8");
-        const mod = tryParseModTxt(modText);
-        return mod?.color || undefined;
-      } catch {
-        return undefined;
+      const supermodXmlPath = `${modPath}/supermod.xml`;
+      if (fs.existsSync(supermodXmlPath)) {
+        try {
+          const xmlText = fs.readFileSync(supermodXmlPath, "utf8");
+          const mod = tryParseSupermodXml(xmlText);
+          return mod?.color || undefined;
+        } catch {
+          return undefined;
+        }
       }
+
+      return undefined;
     };
 
     const addModEntry = (
@@ -967,40 +1080,55 @@ ipcMain.handle("get-mod-data", async (event, operation) => {
       ? getActiveModPath(operation.basePath, modData.type, modData.name)
       : getDisabledModPath(operation.basePath, modData.type, modData.name);
 
-    // Try to read mod.txt
-    let modTextPath = modPath + "/mod.txt";
-    if (fs.existsSync(modTextPath)) {
-      let modText = fs.readFileSync(modTextPath, "utf8");
-      const mod = tryParseModTxt(modText);
+    // Try to read mod.txt and/or supermod.xml
+    const modTextPath = `${modPath}/mod.txt`;
+    const supermodXmlPath = `${modPath}/supermod.xml`;
+    const hasModTxt = fs.existsSync(modTextPath);
+    const hasSupermodXml = fs.existsSync(supermodXmlPath);
 
-      if (!mod) {
-        throw new Error("Could not parse mod.txt metadata");
-      }
-      let img = undefined;
-      if (mod.image) {
-        let imgPath = modPath + "/" + mod.image;
-        imgPath = imgPath.replace(/\\/g, "/");
+    if (hasModTxt || hasSupermodXml) {
+      const parsedModTxt = hasModTxt
+        ? tryParseModTxt(fs.readFileSync(modTextPath, "utf8"))
+        : null;
+      const parsedSupermodXml = hasSupermodXml
+        ? tryParseSupermodXml(fs.readFileSync(supermodXmlPath, "utf8"))
+        : null;
 
-        if (fs.existsSync(imgPath)) {
-          let imageData = fs.readFileSync(imgPath);
-          let base64Image = Buffer.from(imageData).toString("base64");
-          img = `data:image/png;base64,${base64Image}`;
+      if (parsedModTxt || parsedSupermodXml) {
+        const mod: ParsedModMetadata = {
+          name: parsedModTxt?.name || parsedSupermodXml?.name,
+          version: parsedModTxt?.version || parsedSupermodXml?.version,
+          author: parsedModTxt?.author || parsedSupermodXml?.author,
+          image: parsedModTxt?.image || parsedSupermodXml?.image,
+          color: parsedModTxt?.color || parsedSupermodXml?.color,
+        };
+
+        let img = undefined;
+        if (mod.image) {
+          let imgPath = modPath + "/" + mod.image;
+          imgPath = imgPath.replace(/\\/g, "/");
+
+          if (fs.existsSync(imgPath)) {
+            let imageData = fs.readFileSync(imgPath);
+            let base64Image = Buffer.from(imageData).toString("base64");
+            img = `data:image/png;base64,${base64Image}`;
+          }
+        } else {
+          getModImageFromMWH(loadModSourceMetadata(modPath)?.modId ?? "").then(
+            (imageUrl) => {
+              img = imageUrl || undefined;
+            },
+          );
         }
-      } else {
-        getModImageFromMWH(loadModSourceMetadata(modPath)?.modId ?? "").then(
-          (imageUrl) => {
-            img = imageUrl || undefined;
-          },
-        );
-      }
 
-      return {
-        name: mod.name || modData.name,
-        image: img,
-        version: mod.version || "Unknown",
-        author: mod.author || "Unknown",
-        color: mod.color || undefined,
-      };
+        return {
+          name: mod.name || modData.name,
+          image: img,
+          version: mod.version || "Unknown",
+          author: mod.author || "Unknown",
+          color: mod.color || undefined,
+        };
+      }
     }
 
     // Try main.xml for BeardLib or map mods
@@ -1058,6 +1186,24 @@ ipcMain.handle("check-mod-update", async (event, operation) => {
       if (fs.existsSync(modTxtPath)) {
         const rawModTxt = fs.readFileSync(modTxtPath, "utf8");
         const extractedId = tryExtractModWorkshopIdFromModTxt(rawModTxt);
+        if (extractedId) {
+          modId = extractedId;
+          saveModSourceMetadata(modPath, {
+            provider: "modworkshop",
+            modId: extractedId,
+            sourceUrl: `https://modworkshop.net/mod/${extractedId}`,
+            savedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    if (!modId) {
+      const supermodXmlPath = `${modPath}/supermod.xml`;
+      if (fs.existsSync(supermodXmlPath)) {
+        const rawSupermodXml = fs.readFileSync(supermodXmlPath, "utf8");
+        const extractedId =
+          tryExtractModWorkshopIdFromSupermodXml(rawSupermodXml);
         if (extractedId) {
           modId = extractedId;
           saveModSourceMetadata(modPath, {
